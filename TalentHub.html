@@ -1,0 +1,2268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TalentHub – Internal Careers &amp; Resume Assessment</title>
+<!--
+  TalentHub – Internal Careers & Resume Assessment (PROTOTYPE)
+  ------------------------------------------------------------
+  Single-file prototype: HTML + CSS + vanilla JS, no external dependencies.
+  All data is mock data held in memory and mirrored to localStorage.
+  Code layout:
+    1. CSS  – design tokens (light/dark), layout, components
+    2. HTML – app shell (sidebar, header, view container, modal, toasts)
+    3. JS   – config, mock data, API facade (swap for real backend),
+              utilities, scoring, router, module views, event wiring
+-->
+<style>
+/* ============ 1. DESIGN TOKENS ============ */
+:root{
+  --bg:#f4f6fa; --surface:#ffffff; --surface-2:#f8fafc; --border:#e2e8f0;
+  --text:#0f172a; --text-2:#475569; --text-3:#64748b;
+  --primary:#2453c9; --primary-2:#1d43a5; --primary-soft:#e8eefc;
+  --success:#15803d; --success-soft:#dcfce7;
+  --warning:#a16207; --warning-soft:#fef3c7;
+  --danger:#b91c1c; --danger-soft:#fee2e2;
+  --info:#0e7490; --info-soft:#cffafe;
+  --neutral-soft:#eef2f7;
+  --sidebar:#0f1b3d; --sidebar-text:#c7d2fe; --sidebar-active:#2453c9;
+  --shadow:0 1px 2px rgba(15,23,42,.06),0 2px 8px rgba(15,23,42,.05);
+  --radius:10px; --radius-sm:6px;
+  --font:"Segoe UI",system-ui,-apple-system,Roboto,"Helvetica Neue",Arial,sans-serif;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#0b1120; --surface:#131c31; --surface-2:#0f172a; --border:#24314d;
+    --text:#e5e9f2; --text-2:#b4bfd3; --text-3:#8b98b0;
+    --primary:#6b8cff; --primary-2:#86a0ff; --primary-soft:#1c2a52;
+    --success:#4ade80; --success-soft:#12301f;
+    --warning:#fbbf24; --warning-soft:#3a2d0c;
+    --danger:#f87171; --danger-soft:#3b1414;
+    --info:#22d3ee; --info-soft:#0c2f38;
+    --neutral-soft:#1b2540;
+    --sidebar:#080e1d; --sidebar-text:#aab7e0; --sidebar-active:#2b4cc0;
+    --shadow:0 1px 2px rgba(0,0,0,.4);
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0b1120; --surface:#131c31; --surface-2:#0f172a; --border:#24314d;
+  --text:#e5e9f2; --text-2:#b4bfd3; --text-3:#8b98b0;
+  --primary:#6b8cff; --primary-2:#86a0ff; --primary-soft:#1c2a52;
+  --success:#4ade80; --success-soft:#12301f;
+  --warning:#fbbf24; --warning-soft:#3a2d0c;
+  --danger:#f87171; --danger-soft:#3b1414;
+  --info:#22d3ee; --info-soft:#0c2f38;
+  --neutral-soft:#1b2540;
+  --sidebar:#080e1d; --sidebar-text:#aab7e0; --sidebar-active:#2b4cc0;
+  --shadow:0 1px 2px rgba(0,0,0,.4);
+  color-scheme:dark;
+}
+
+/* ============ 2. BASE ============ */
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{font-family:var(--font);font-size:14px;line-height:1.5;color:var(--text);background:var(--bg)}
+h1,h2,h3,h4{margin:0 0 .5rem;line-height:1.25}
+h1{font-size:1.4rem} h2{font-size:1.15rem} h3{font-size:1rem} h4{font-size:.9rem}
+p{margin:0 0 .75rem}
+a{color:var(--primary)}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--primary);outline-offset:2px}
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.muted{color:var(--text-3)} .small{font-size:.85rem}
+.mono{font-family:Consolas,"Courier New",monospace}
+
+/* ============ 3. LAYOUT ============ */
+.app{display:grid;grid-template-columns:248px minmax(0,1fr);min-height:100vh}
+.sidebar{background:var(--sidebar);color:var(--sidebar-text);position:sticky;top:0;height:100vh;overflow-y:auto;display:flex;flex-direction:column;z-index:30}
+.brand{display:flex;align-items:center;gap:.6rem;padding:1.1rem 1.1rem 1rem;color:#fff;border-bottom:1px solid rgba(255,255,255,.08)}
+.brand-logo{width:34px;height:34px;border-radius:8px;background:linear-gradient(135deg,#4f7bff,#22c3e6);display:grid;place-items:center;font-weight:700;color:#fff}
+.brand b{display:block;font-size:1rem} .brand span{font-size:.72rem;opacity:.75}
+.nav{list-style:none;margin:0;padding:.6rem}
+.nav button{all:unset;box-sizing:border-box;display:flex;align-items:center;gap:.7rem;width:100%;padding:.62rem .8rem;border-radius:8px;cursor:pointer;color:var(--sidebar-text);font-size:.9rem}
+.nav button:hover{background:rgba(255,255,255,.07);color:#fff}
+.nav button.active{background:var(--sidebar-active);color:#fff}
+.nav button:focus-visible{outline:2px solid #fff}
+.nav svg{width:18px;height:18px;flex:none}
+.nav .lock{margin-left:auto;font-size:.7rem;opacity:.7}
+.sidebar-foot{margin-top:auto;padding:1rem;font-size:.75rem;opacity:.8;border-top:1px solid rgba(255,255,255,.08)}
+.main{display:flex;flex-direction:column;min-width:0}
+.topbar{position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:.75rem;padding:.7rem 1.4rem;background:var(--surface);border-bottom:1px solid var(--border)}
+.topbar .title{font-weight:600;font-size:1.05rem;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.menu-btn{display:none}
+.proto-banner{background:var(--warning-soft);color:var(--warning);padding:.45rem 1.4rem;font-size:.8rem;border-bottom:1px solid var(--border)}
+.content{padding:1.4rem;max-width:1400px;width:100%;margin:0 auto}
+.page-head{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:1rem;margin-bottom:1.2rem}
+.page-head p{margin:0;color:var(--text-3)}
+.user-chip{display:flex;align-items:center;gap:.5rem}
+.avatar{width:32px;height:32px;border-radius:50%;background:var(--primary-soft);color:var(--primary);display:grid;place-items:center;font-weight:600;font-size:.8rem}
+
+/* ============ 4. COMPONENTS ============ */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);padding:1.1rem}
+.card + .card{margin-top:1rem}
+.card-head{display:flex;align-items:center;justify-content:space-between;gap:.75rem;margin-bottom:.8rem;flex-wrap:wrap}
+.card-head h2,.card-head h3{margin:0}
+.grid{display:grid;gap:1rem}
+.g-4{grid-template-columns:repeat(4,minmax(0,1fr))}
+.g-3{grid-template-columns:repeat(3,minmax(0,1fr))}
+.g-2{grid-template-columns:repeat(2,minmax(0,1fr))}
+.g-2-1{grid-template-columns:2fr 1fr}
+.stat{display:flex;gap:.9rem;align-items:center}
+.stat-icon{width:44px;height:44px;border-radius:10px;display:grid;place-items:center;flex:none}
+.stat-icon svg{width:22px;height:22px}
+.stat .v{font-size:1.6rem;font-weight:700;line-height:1.1}
+.stat .l{color:var(--text-3);font-size:.82rem}
+
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:.4rem;padding:.5rem .9rem;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;font-size:.86rem;font-weight:500;white-space:nowrap;text-decoration:none}
+.btn:hover{background:var(--surface-2)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn-primary{background:var(--primary);border-color:var(--primary);color:#fff}
+.btn-primary:hover{background:var(--primary-2)}
+:root[data-theme="dark"] .btn-primary{color:#0b1120}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .btn-primary{color:#0b1120}}
+.btn-success{background:var(--success-soft);color:var(--success);border-color:transparent}
+.btn-warning{background:var(--warning-soft);color:var(--warning);border-color:transparent}
+.btn-danger{background:var(--danger-soft);color:var(--danger);border-color:transparent}
+.btn-ghost{background:transparent;border-color:transparent}
+.btn-sm{padding:.3rem .6rem;font-size:.8rem}
+.btn-row{display:flex;flex-wrap:wrap;gap:.5rem}
+
+.badge{display:inline-block;padding:.15rem .55rem;border-radius:999px;font-size:.74rem;font-weight:600;white-space:nowrap;background:var(--neutral-soft);color:var(--text-2)}
+.b-success{background:var(--success-soft);color:var(--success)}
+.b-warning{background:var(--warning-soft);color:var(--warning)}
+.b-danger{background:var(--danger-soft);color:var(--danger)}
+.b-info{background:var(--info-soft);color:var(--info)}
+.b-primary{background:var(--primary-soft);color:var(--primary)}
+.chip{display:inline-block;padding:.15rem .55rem;margin:.15rem .25rem .15rem 0;border-radius:6px;font-size:.78rem;background:var(--neutral-soft);color:var(--text-2)}
+.chip.ok{background:var(--success-soft);color:var(--success)}
+.chip.miss{background:var(--danger-soft);color:var(--danger)}
+
+.table-wrap{position:relative;overflow-x:auto;border:1px solid var(--border);border-radius:var(--radius)}
+table{width:100%;border-collapse:collapse;background:var(--surface)}
+th,td{text-align:left;padding:.65rem .8rem;border-bottom:1px solid var(--border);vertical-align:top}
+th{background:var(--surface-2);font-size:.78rem;text-transform:uppercase;letter-spacing:.03em;color:var(--text-3);font-weight:600;white-space:nowrap}
+tr:last-child td{border-bottom:none}
+tbody tr:hover{background:var(--surface-2)}
+
+.toolbar{display:flex;flex-wrap:wrap;gap:.6rem;align-items:center;margin-bottom:1rem}
+.toolbar .grow{flex:1;min-width:200px}
+.input,select.input,textarea.input{width:100%;padding:.5rem .65rem;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);color:var(--text)}
+textarea.input{min-height:84px;resize:vertical}
+.input[aria-invalid="true"]{border-color:var(--danger);box-shadow:0 0 0 2px var(--danger-soft)}
+.field{display:flex;flex-direction:column;gap:.3rem;min-width:0}
+.field label,.field .lbl{font-size:.82rem;font-weight:600;color:var(--text-2)}
+.req::after{content:" *";color:var(--danger)}
+.err{color:var(--danger);font-size:.78rem;min-height:0}
+.hint{color:var(--text-3);font-size:.76rem}
+.form-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1rem}
+.form-grid .span-2{grid-column:span 2}
+.form-grid .span-3{grid-column:1/-1}
+fieldset{border:1px solid var(--border);border-radius:var(--radius);padding:1rem 1.1rem 1.2rem;margin:0 0 1rem;background:var(--surface)}
+legend{font-weight:700;padding:0 .4rem;color:var(--primary)}
+.check-group{display:flex;flex-wrap:wrap;gap:.4rem .9rem}
+.check-group label{font-weight:400;display:flex;gap:.35rem;align-items:center;font-size:.85rem;color:var(--text)}
+.sticky-actions{position:sticky;bottom:0;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:.8rem 1rem;display:flex;flex-wrap:wrap;gap:.5rem;justify-content:space-between;align-items:center;box-shadow:0 -4px 12px rgba(0,0,0,.06)}
+
+.list{list-style:none;margin:0;padding:0}
+.list li{padding:.65rem 0;border-bottom:1px solid var(--border);display:flex;gap:.75rem;align-items:flex-start}
+.list li:last-child{border-bottom:none}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--primary);margin-top:.45rem;flex:none}
+
+.job-card{display:flex;flex-direction:column;gap:.5rem}
+.job-card .meta{display:flex;flex-wrap:wrap;gap:.35rem .9rem;color:var(--text-3);font-size:.8rem}
+
+.progress{height:8px;border-radius:999px;background:var(--neutral-soft);overflow:hidden}
+.progress > span{display:block;height:100%;background:var(--primary);border-radius:999px}
+.score-ring{--p:0;--c:var(--primary);width:110px;height:110px;border-radius:50%;display:grid;place-items:center;background:conic-gradient(var(--c) calc(var(--p)*1%),var(--neutral-soft) 0)}
+.score-ring > div{width:84px;height:84px;border-radius:50%;background:var(--surface);display:grid;place-items:center;text-align:center}
+.score-ring b{font-size:1.6rem;line-height:1} .score-ring small{font-size:.7rem;color:var(--text-3)}
+
+.crit{display:grid;grid-template-columns:minmax(140px,1.3fr) 60px 2fr 70px 70px;gap:.6rem;align-items:center;padding:.55rem 0;border-bottom:1px solid var(--border)}
+.crit:last-child{border-bottom:none}
+.crit input[type=number]{width:70px}
+.evidence{background:var(--surface-2);border-left:3px solid var(--primary);padding:.5rem .7rem;border-radius:4px;font-size:.83rem;margin:.35rem 0}
+.evidence .src{display:block;font-size:.72rem;color:var(--text-3);margin-top:.2rem}
+
+.notice{padding:.75rem .9rem;border-radius:var(--radius-sm);font-size:.85rem;margin-bottom:1rem;border:1px solid transparent}
+.notice-info{background:var(--info-soft);color:var(--info)}
+.notice-warn{background:var(--warning-soft);color:var(--warning)}
+.notice-danger{background:var(--danger-soft);color:var(--danger)}
+
+.empty{text-align:center;padding:2.5rem 1rem;color:var(--text-3)}
+.empty svg{width:42px;height:42px;opacity:.5;margin-bottom:.5rem}
+
+.dropzone{border:2px dashed var(--border);border-radius:var(--radius);padding:1.4rem;text-align:center;background:var(--surface-2);cursor:pointer}
+.dropzone.drag{border-color:var(--primary);background:var(--primary-soft)}
+
+.steps{display:flex;gap:0;flex-wrap:wrap;margin:.5rem 0}
+.step{flex:1;min-width:110px;text-align:center;font-size:.75rem;position:relative;padding-top:22px;color:var(--text-3)}
+.step::before{content:"";position:absolute;top:6px;left:50%;width:12px;height:12px;margin-left:-6px;border-radius:50%;background:var(--neutral-soft);border:2px solid var(--border);z-index:1}
+.step::after{content:"";position:absolute;top:11px;left:-50%;width:100%;height:2px;background:var(--border)}
+.step:first-child::after{display:none}
+.step.done{color:var(--success)} .step.done::before{background:var(--success);border-color:var(--success)}
+.step.current{color:var(--primary);font-weight:600} .step.current::before{background:var(--primary);border-color:var(--primary)}
+
+.bar-chart{display:flex;flex-direction:column;gap:.55rem}
+.bar-row{display:grid;grid-template-columns:minmax(110px,180px) 1fr 44px;gap:.6rem;align-items:center;font-size:.83rem}
+.bar-row .track{height:14px;background:var(--neutral-soft);border-radius:4px;overflow:hidden}
+.bar-row .fill{height:100%;background:var(--primary);border-radius:4px}
+.vbars{display:flex;align-items:flex-end;gap:.6rem;height:170px;padding-top:.5rem;border-bottom:1px solid var(--border)}
+.vbars .col{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;font-size:.75rem}
+.vbars .col .b{width:100%;max-width:46px;background:var(--primary);border-radius:4px 4px 0 0}
+.vbars-labels{display:flex;gap:.6rem}
+.vbars-labels span{flex:1;text-align:center;font-size:.72rem;color:var(--text-3)}
+
+.tabs{display:flex;gap:.25rem;border-bottom:1px solid var(--border);margin-bottom:1rem;overflow-x:auto}
+.tabs button{all:unset;cursor:pointer;padding:.55rem .9rem;font-size:.86rem;color:var(--text-3);border-bottom:2px solid transparent;white-space:nowrap}
+.tabs button.active{color:var(--primary);border-bottom-color:var(--primary);font-weight:600}
+.tabs button:focus-visible{outline:2px solid var(--primary)}
+
+/* Modal */
+.modal-backdrop{position:fixed;inset:0;background:rgba(2,6,23,.55);display:none;align-items:flex-start;justify-content:center;padding:4vh 1rem;z-index:100;overflow-y:auto}
+.modal-backdrop.open{display:flex}
+.modal{background:var(--surface);border-radius:12px;width:100%;max-width:760px;box-shadow:0 20px 50px rgba(0,0,0,.3);border:1px solid var(--border)}
+.modal.wide{max-width:1000px} .modal.narrow{max-width:480px}
+.modal-head{display:flex;align-items:center;justify-content:space-between;padding:1rem 1.2rem;border-bottom:1px solid var(--border)}
+.modal-head h2{margin:0}
+.modal-body{padding:1.2rem}
+.modal-foot{padding:.9rem 1.2rem;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:.5rem;flex-wrap:wrap}
+
+/* Toasts */
+.toasts{position:fixed;right:1rem;bottom:1rem;display:flex;flex-direction:column;gap:.5rem;z-index:200;max-width:min(380px,calc(100vw - 2rem))}
+.toast{padding:.75rem 1rem;border-radius:8px;background:var(--surface);border:1px solid var(--border);border-left:4px solid var(--primary);box-shadow:0 6px 20px rgba(0,0,0,.15);font-size:.86rem;animation:tin .2s ease-out}
+.toast.success{border-left-color:var(--success)} .toast.error{border-left-color:var(--danger)} .toast.warn{border-left-color:var(--warning)}
+@keyframes tin{from{transform:translateY(8px);opacity:0}to{transform:none;opacity:1}}
+
+.kv{display:grid;grid-template-columns:minmax(120px,190px) 1fr;gap:.35rem .9rem;font-size:.87rem}
+.kv dt{color:var(--text-3)} .kv dd{margin:0}
+.scrim{display:none}
+
+/* ============ 5. RESPONSIVE ============ */
+@media (max-width:1100px){
+  .g-4{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .g-2-1{grid-template-columns:1fr}
+  .form-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .form-grid .span-2{grid-column:1/-1}
+}
+@media (max-width:860px){
+  .app{grid-template-columns:minmax(0,1fr)}
+  .sidebar{position:fixed;left:0;top:0;width:264px;transform:translateX(-100%);transition:transform .2s}
+  .sidebar.open{transform:none}
+  .scrim.open{display:block;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:25}
+  .menu-btn{display:inline-flex}
+  .g-3,.g-2{grid-template-columns:1fr}
+  .crit{grid-template-columns:1fr 60px;grid-auto-flow:row}
+  .crit .crit-bar{grid-column:1/-1}
+  .topbar{padding:.6rem 1rem} .content{padding:1rem} .proto-banner{padding:.45rem 1rem}
+  .hide-sm{display:none}
+}
+@media (max-width:560px){
+  .g-4{grid-template-columns:1fr}
+  .form-grid{grid-template-columns:1fr}
+  .kv{grid-template-columns:1fr}
+  .kv dt{margin-top:.4rem}
+  .user-chip .name{display:none}
+  .topbar .title{display:none}
+  #roleSelect{flex:1;min-width:0}
+  .bar-row{grid-template-columns:90px 1fr 36px}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- ============ SIDEBAR ============ -->
+  <aside class="sidebar" id="sidebar" aria-label="Main navigation">
+    <div class="brand">
+      <div class="brand-logo" aria-hidden="true">TH</div>
+      <div><b>TalentHub</b><span>Internal Careers &amp; Resume Assessment</span></div>
+    </div>
+    <ul class="nav" id="nav"></ul>
+    <div class="sidebar-foot">
+      Prototype build · mock data only<br>
+      Data is stored in this browser's localStorage.
+    </div>
+  </aside>
+  <div class="scrim" id="scrim"></div>
+
+  <!-- ============ MAIN ============ -->
+  <div class="main">
+    <header class="topbar">
+      <button class="btn btn-ghost menu-btn" id="menuBtn" aria-label="Open navigation" aria-controls="sidebar" aria-expanded="false">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+      </button>
+      <div class="title" id="pageTitle">Dashboard</div>
+      <label class="sr-only" for="roleSelect">Demo role</label>
+      <select class="input" id="roleSelect" style="width:auto" title="Switch demo role to see role-based access">
+        <option value="recruiter">Role: Recruiter</option>
+        <option value="manager">Role: Hiring Manager</option>
+        <option value="employee">Role: Employee</option>
+      </select>
+      <button class="btn btn-ghost" id="themeBtn" aria-label="Toggle light/dark theme" title="Toggle theme">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+      </button>
+      <div class="user-chip">
+        <div class="avatar" id="userAvatar">PR</div>
+        <div class="name small hide-sm"><b id="userName">Priya Raman</b><br><span class="muted" id="userRole">Recruiter</span></div>
+      </div>
+    </header>
+    <div class="proto-banner" role="note">
+      <b>Prototype:</b> mock data, no backend, no real authentication. Resume files are validated for type/size only —
+      text extraction and automated scoring are <b>not implemented</b>; scores shown are sample reviewer-entered values.
+    </div>
+    <main class="content" id="view" tabindex="-1"></main>
+  </div>
+</div>
+
+<!-- ============ MODAL ============ -->
+<div class="modal-backdrop" id="modalBackdrop" aria-hidden="true">
+  <div class="modal" id="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <div class="modal-head">
+      <h2 id="modalTitle">Title</h2>
+      <button class="btn btn-ghost btn-sm" data-close aria-label="Close dialog">✕</button>
+    </div>
+    <div class="modal-body" id="modalBody"></div>
+    <div class="modal-foot" id="modalFoot"></div>
+  </div>
+</div>
+
+<!-- ============ TOASTS ============ -->
+<div class="toasts" id="toasts" aria-live="polite" aria-atomic="false"></div>
+
+<script>
+"use strict";
+/* =====================================================================
+   SECTION A — STATIC CONFIGURATION (would come from /api/config)
+   ===================================================================== */
+const CONFIG = {
+  appVersion: "0.9.0-prototype",
+  today: new Date().toISOString().slice(0, 10),
+  maxResumeBytes: 5 * 1024 * 1024,                         // 5 MB
+  allowedResumeExt: ["pdf", "docx"],
+  allowedResumeMime: ["application/pdf",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document"],
+  jobStatuses: ["Draft", "Pending Approval", "Published", "Closed", "Cancelled"],
+  workModes: ["On-site", "Hybrid", "Remote"],
+  jobTypes: ["Full-time Permanent", "Fixed-term Contract", "Internal Secondment", "Rotational Program"],
+  performance: ["Meets Expectations or above", "Exceeds Expectations or above", "No active performance plan", "Not applicable"],
+  mgrApprovalOptions: ["Required before application", "Required before shortlisting", "Notify only"],
+  /* Personal characteristics that are NEVER captured as scoring inputs. */
+  excludedAttributes: ["Age / date of birth", "Gender", "Marital or family status", "Religion",
+    "Race / ethnicity", "Nationality / national origin", "Disability or health", "Photograph",
+    "Home address", "Sexual orientation", "Political affiliation"],
+};
+
+/* Users for the role switcher (a real system would use SSO + server-side RBAC). */
+const USERS = {
+  recruiter: { name: "Priya Raman", empId: "EMP-10234", role: "Recruiter", initials: "PR" },
+  manager:   { name: "Arjun Mehta", empId: "EMP-08812", role: "Hiring Manager", initials: "AM" },
+  employee:  { name: "Sneha Kulkarni", empId: "EMP-11920", role: "Employee", initials: "SK" },
+};
+
+/* Module registry: id, label, icon path, which roles may access it. */
+const MODULES = [
+  { id: "dashboard",  label: "Dashboard",                 roles: ["recruiter", "manager", "employee"], icon: "M3 13h8V3H3zM13 21h8V11h-8zM3 21h8v-6H3zM13 3v6h8V3z" },
+  { id: "jobs",       label: "Internal Job Postings",     roles: ["recruiter", "manager", "employee"], icon: "M4 7h16v13H4zM9 7V4h6v3M4 12h16" },
+  { id: "myapps",     label: "My Applications",           roles: ["recruiter", "manager", "employee"], icon: "M6 3h9l5 5v13H6zM14 3v6h6M9 13h8M9 17h6" },
+  { id: "assessment", label: "Resume Assessment",         roles: ["recruiter", "manager"],             icon: "M9 11l3 3 8-8M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9" },
+  { id: "evaluation", label: "Candidate Evaluation",      roles: ["recruiter", "manager"],             icon: "M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM23 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8" },
+  { id: "approvals",  label: "Approvals & Workflow",      roles: ["recruiter", "manager"],             icon: "M22 11.1V12a10 10 0 1 1-5.9-9.1M22 4L12 14l-3-3" },
+  { id: "reports",    label: "Reports & Analytics",       roles: ["recruiter", "manager"],             icon: "M3 3v18h18M7 15l4-4 3 3 6-6" },
+  { id: "admin",      label: "Administration & Config",   roles: ["recruiter"],                        icon: "M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z" },
+];
+
+/* =====================================================================
+   SECTION B — MOCK SEED DATA (would come from the database)
+   ===================================================================== */
+function seedData() {
+  const ev = (text, src) => ({ text, src });   // evidence helper
+
+  const lookups = {
+    departments: ["Engineering", "Data & Analytics", "IT Infrastructure", "Finance", "Human Resources",
+      "Marketing", "Product Management", "Operations", "Customer Success", "Legal & Compliance"],
+    jobFamilies: ["Software Engineering", "Data Science & Analytics", "Infrastructure & Cloud", "Finance & Accounting",
+      "Human Resources", "Marketing & Communications", "Product Management", "Operations"],
+    grades: ["G4", "G5", "G6", "G7", "G8", "G9"],
+    locations: ["Bengaluru", "Hyderabad", "Pune", "Chennai", "Mumbai", "Gurugram", "London"],
+    people: ["Arjun Mehta", "Kavita Iyer", "Rahul Desai", "Sunita Rao", "Priya Raman", "Neha Joshi", "Thomas George"],
+    recruiters: ["Priya Raman", "Neha Joshi", "Thomas George"],
+  };
+
+  /* Assessment profiles: criteria + default weights (must total 100). */
+  const profiles = [
+    { id: "AP-TECH", name: "Technical Role – Standard", criteria: [
+      { key: "reqSkills", name: "Required Skills Match", weight: 35 },
+      { key: "experience", name: "Relevant Experience", weight: 25 },
+      { key: "quals", name: "Qualifications & Certifications", weight: 15 },
+      { key: "prefSkills", name: "Preferred Skills", weight: 15 },
+      { key: "resp", name: "Responsibilities Alignment", weight: 10 } ] },
+    { id: "AP-MGMT", name: "People Leadership", criteria: [
+      { key: "leadership", name: "People Leadership Experience", weight: 30 },
+      { key: "domain", name: "Domain / Technical Depth", weight: 25 },
+      { key: "stakeholder", name: "Stakeholder Management", weight: 20 },
+      { key: "reqSkills", name: "Required Skills Match", weight: 15 },
+      { key: "quals", name: "Qualifications & Certifications", weight: 10 } ] },
+    { id: "AP-GEN", name: "General Professional", criteria: [
+      { key: "reqSkills", name: "Required Skills Match", weight: 30 },
+      { key: "experience", name: "Relevant Experience", weight: 30 },
+      { key: "quals", name: "Qualifications & Certifications", weight: 20 },
+      { key: "prefSkills", name: "Preferred Skills", weight: 20 } ] },
+  ];
+  const w = (pid) => profiles.find(p => p.id === pid).criteria.map(c => ({ ...c }));
+
+  const baseJob = {
+    jobType: "Full-time Permanent", resumeRequired: "Mandatory", perfEligibility: "Meets Expectations or above",
+    mgrApproval: "Required before shortlisting", minTenure: 12, featured: false, history: [],
+  };
+  const jobs = [
+    { ...baseJob, id: "JOB-2026-1001", title: "Senior Full Stack Engineer", department: "Engineering", family: "Software Engineering",
+      grade: "G7", hiringManager: "Arjun Mehta", recruiter: "Priya Raman", openings: 2,
+      summary: "Build and scale customer-facing payment and onboarding experiences used by 4M+ users.",
+      responsibilities: "Design and deliver features across React front end and Node.js services.\nOwn API design and data modelling for onboarding flows.\nMentor two to three engineers and lead code reviews.\nPartner with Product and QA on release planning.",
+      reqQualifications: "Bachelor's degree in Computer Science or equivalent practical experience.",
+      reqSkills: ["JavaScript", "React", "Node.js", "REST APIs", "SQL"], prefSkills: ["TypeScript", "AWS", "Docker", "CI/CD"],
+      minExp: 5, prefExp: 7, certifications: "AWS Certified Developer – Associate (preferred)", location: "Bengaluru", workMode: "Hybrid",
+      eligibleDepts: ["Engineering", "IT Infrastructure", "Product Management", "Data & Analytics", "Customer Success"], eligibleGrades: ["G5", "G6", "G7"],
+      openDate: "2026-10-01", closeDate: "2026-10-31", profileId: "AP-TECH", weights: w("AP-TECH"), threshold: 60,
+      status: "Published", featured: true, createdAt: "2026-09-26" },
+    { ...baseJob, id: "JOB-2026-1002", title: "Data Scientist – Customer Analytics", department: "Data & Analytics", family: "Data Science & Analytics",
+      grade: "G6", hiringManager: "Kavita Iyer", recruiter: "Priya Raman", openings: 1,
+      summary: "Develop churn and propensity models that guide retention campaigns across retail banking products.",
+      responsibilities: "Build, validate and monitor predictive models.\nDesign and analyse A/B experiments with Marketing.\nPresent insights to business stakeholders.",
+      reqQualifications: "Bachelor's or Master's in Statistics, Mathematics, Computer Science or related field.",
+      reqSkills: ["Python", "SQL", "Machine Learning", "Statistics"], prefSkills: ["PySpark", "Tableau", "A/B Testing"],
+      minExp: 3, prefExp: 5, certifications: "None required", location: "Hyderabad", workMode: "Hybrid",
+      eligibleDepts: ["Data & Analytics", "Finance", "Engineering", "Marketing"], eligibleGrades: ["G4", "G5", "G6"],
+      openDate: "2026-10-05", closeDate: "2026-11-05", profileId: "AP-TECH", weights: w("AP-TECH"), threshold: 60,
+      status: "Published", featured: true, createdAt: "2026-10-01" },
+    { ...baseJob, id: "JOB-2026-1003", title: "Engineering Manager – Platform Services", department: "Engineering", family: "Software Engineering",
+      grade: "G8", hiringManager: "Rahul Desai", recruiter: "Neha Joshi", openings: 1,
+      summary: "Lead a team of 9 engineers responsible for shared platform services, observability and developer tooling.",
+      responsibilities: "Hire, coach and grow engineers.\nOwn platform roadmap and delivery commitments.\nDrive reliability targets (SLOs) and incident reviews.\nManage cross-team dependencies.",
+      reqQualifications: "Bachelor's degree in Engineering or equivalent; 2+ years managing engineers.",
+      reqSkills: ["People Management", "Agile Delivery", "Microservices", "Stakeholder Management"], prefSkills: ["Kubernetes", "SRE Practices"],
+      minExp: 8, prefExp: 10, certifications: "None required", location: "Pune", workMode: "On-site",
+      eligibleDepts: ["Engineering", "IT Infrastructure"], eligibleGrades: ["G7", "G8"], minTenure: 24,
+      perfEligibility: "Exceeds Expectations or above",
+      openDate: "2026-10-03", closeDate: "2026-10-28", profileId: "AP-MGMT", weights: w("AP-MGMT"), threshold: 65,
+      status: "Published", featured: true, createdAt: "2026-09-29" },
+    { ...baseJob, id: "JOB-2026-1004", title: "Cloud Infrastructure Specialist", department: "IT Infrastructure", family: "Infrastructure & Cloud",
+      grade: "G6", hiringManager: "Sunita Rao", recruiter: "Thomas George", openings: 2,
+      summary: "Operate and automate the company's hybrid cloud estate across AWS and on-premise data centres.",
+      responsibilities: "Automate provisioning with Terraform.\nManage Kubernetes clusters and CI/CD pipelines.\nSupport migration of legacy workloads to AWS.",
+      reqQualifications: "Diploma or degree in IT/Engineering.",
+      reqSkills: ["AWS", "Terraform", "Linux", "Kubernetes"], prefSkills: ["Python", "Ansible", "CI/CD"],
+      minExp: 3, prefExp: 5, certifications: "AWS Solutions Architect – Associate (required within 6 months)", location: "Chennai", workMode: "Remote",
+      eligibleDepts: ["IT Infrastructure", "Engineering", "Customer Success"], eligibleGrades: ["G4", "G5", "G6"],
+      openDate: "2026-10-08", closeDate: "2026-11-10", profileId: "AP-TECH", weights: w("AP-TECH"), threshold: 55,
+      mgrApproval: "Required before application", status: "Published", featured: true, createdAt: "2026-10-06" },
+    { ...baseJob, id: "JOB-2026-1005", title: "Financial Planning Analyst", department: "Finance", family: "Finance & Accounting",
+      grade: "G5", hiringManager: "Thomas George", recruiter: "Neha Joshi", openings: 1,
+      summary: "Support annual budgeting, monthly forecasting and variance analysis for the Retail business unit.",
+      responsibilities: "Prepare monthly forecast packs.\nBuild driver-based financial models.\nPartner with business heads on variance commentary.",
+      reqQualifications: "CA, CMA, MBA (Finance) or equivalent.",
+      reqSkills: ["Financial Modelling", "Excel", "Budgeting", "Variance Analysis"], prefSkills: ["Power BI", "SAP"],
+      minExp: 2, prefExp: 4, certifications: "CA / CMA (preferred)", location: "Bengaluru", workMode: "On-site",
+      eligibleDepts: ["Finance", "Operations", "Data & Analytics"], eligibleGrades: ["G4", "G5"],
+      openDate: "2026-10-02", closeDate: "2026-10-25", profileId: "AP-GEN", weights: w("AP-GEN"), threshold: 55,
+      status: "Published", createdAt: "2026-09-30" },
+    { ...baseJob, id: "JOB-2026-1006", title: "HR Business Partner – Technology", department: "Human Resources", family: "Human Resources",
+      grade: "G7", hiringManager: "Arjun Mehta", recruiter: "Priya Raman", openings: 1,
+      summary: "Act as strategic HR partner to Technology leadership for a population of ~1,200 employees.",
+      responsibilities: "Advise leaders on org design and workforce planning.\nLead performance and talent review cycles.\nHandle employee relations cases.",
+      reqQualifications: "Postgraduate degree in HR or related field.",
+      reqSkills: ["Talent Management", "Employee Relations", "Workforce Planning"], prefSkills: ["HR Analytics", "Change Management"],
+      minExp: 6, prefExp: 8, certifications: "SHRM-CP or equivalent (preferred)", location: "Mumbai", workMode: "Hybrid",
+      eligibleDepts: ["Human Resources"], eligibleGrades: ["G6", "G7"],
+      openDate: "2026-10-20", closeDate: "2026-11-20", profileId: "AP-GEN", weights: w("AP-GEN"), threshold: 60,
+      status: "Pending Approval", createdAt: "2026-10-12" },
+    { ...baseJob, id: "JOB-2026-1007", title: "Product Marketing Manager", department: "Marketing", family: "Marketing & Communications",
+      grade: "G7", hiringManager: "Kavita Iyer", recruiter: "Thomas George", openings: 1,
+      summary: "Own go-to-market positioning for the SME lending product line.",
+      responsibilities: "Define messaging and positioning.\nPlan product launches with Sales and Product.",
+      reqQualifications: "MBA (Marketing) preferred.",
+      reqSkills: ["Product Marketing", "Go-to-Market", "Market Research"], prefSkills: ["B2B Marketing"],
+      minExp: 5, prefExp: 7, certifications: "", location: "Gurugram", workMode: "Hybrid",
+      eligibleDepts: ["Marketing", "Product Management"], eligibleGrades: ["G6", "G7"],
+      openDate: "2026-11-01", closeDate: "2026-11-30", profileId: "AP-GEN", weights: w("AP-GEN"), threshold: 60,
+      status: "Draft", createdAt: "2026-10-13" },
+    { ...baseJob, id: "JOB-2026-0994", title: "QA Automation Lead", department: "Engineering", family: "Software Engineering",
+      grade: "G7", hiringManager: "Rahul Desai", recruiter: "Priya Raman", openings: 1,
+      summary: "Lead test automation strategy for mobile banking apps.",
+      responsibilities: "Own automation frameworks.\nLead a team of 4 QA engineers.",
+      reqQualifications: "Bachelor's degree in Engineering.",
+      reqSkills: ["Selenium", "Appium", "Java", "Test Strategy"], prefSkills: ["CI/CD"],
+      minExp: 6, prefExp: 8, certifications: "ISTQB (preferred)", location: "Pune", workMode: "Hybrid",
+      eligibleDepts: ["Engineering"], eligibleGrades: ["G6", "G7"],
+      openDate: "2026-08-15", closeDate: "2026-09-15", profileId: "AP-TECH", weights: w("AP-TECH"), threshold: 60,
+      status: "Closed", createdAt: "2026-08-10" },
+    { ...baseJob, id: "JOB-2026-0990", title: "Procurement Specialist", department: "Operations", family: "Operations",
+      grade: "G5", hiringManager: "Sunita Rao", recruiter: "Neha Joshi", openings: 1,
+      summary: "Manage vendor sourcing for facilities and IT hardware.", responsibilities: "Run RFP processes.",
+      reqQualifications: "Bachelor's degree.", reqSkills: ["Vendor Management", "Negotiation"], prefSkills: ["SAP Ariba"],
+      minExp: 3, prefExp: 5, certifications: "", location: "Chennai", workMode: "On-site",
+      eligibleDepts: ["Operations", "Finance"], eligibleGrades: ["G4", "G5"],
+      openDate: "2026-08-01", closeDate: "2026-08-31", profileId: "AP-GEN", weights: w("AP-GEN"), threshold: 55,
+      status: "Cancelled", createdAt: "2026-07-28" },
+  ];
+
+  /* Applications. `criteria` = sample reviewer-entered scores (0–100) + resume evidence.
+     criteria === null means the resume has not been assessed yet. */
+  const apps = [
+    { id: "APP-5001", jobId: "JOB-2026-1001", name: "Rohan Verma", empId: "EMP-09321", dept: "Engineering", designation: "Software Engineer II", grade: "G6",
+      tenureMonths: 38, relExp: 6, skills: ["JavaScript", "React", "Node.js", "REST APIs", "SQL", "TypeScript", "Docker"],
+      education: "B.Tech, Computer Science – NIT Trichy", certs: ["AWS Certified Developer – Associate"], resumeFile: "Rohan_Verma_Resume.pdf",
+      appliedAt: "2026-10-03", mgrApprovalStatus: "Approved", assessStatus: "Assessed", decision: "Shortlisted", decisionReason: "Strong match on all required skills.",
+      comments: "Led the UPI autopay rewrite; strong ownership signals. Validate system-design depth in interview.", override: null,
+      criteria: {
+        reqSkills: { score: 90, evidence: [ev("Built React + Node.js onboarding flow serving 1.2M monthly users; designed 14 REST endpoints.", "Experience · Payments Platform (2023–present)"), ev("Optimised PostgreSQL queries, reducing p95 latency by 40%.", "Experience · Payments Platform")] },
+        experience: { score: 82, evidence: [ev("6 years full-stack development across two product teams.", "Summary")] },
+        quals: { score: 85, evidence: [ev("B.Tech Computer Science; AWS Certified Developer – Associate (2025).", "Education & Certifications")] },
+        prefSkills: { score: 75, evidence: [ev("Migrated services to TypeScript; containerised with Docker. No explicit CI/CD ownership stated.", "Projects")] },
+        resp: { score: 80, evidence: [ev("Mentored 3 junior engineers; ran weekly code-review guild.", "Experience · Leadership")] } } },
+    { id: "APP-5002", jobId: "JOB-2026-1001", name: "Ananya Bose", empId: "EMP-10877", dept: "Customer Success", designation: "Frontend Engineer", grade: "G6",
+      tenureMonths: 29, relExp: 4.5, skills: ["JavaScript", "React", "TypeScript", "REST APIs", "CI/CD"],
+      education: "B.E., Information Technology – Jadavpur University", certs: [], resumeFile: "Ananya_Bose_CV.docx",
+      appliedAt: "2026-10-04", mgrApprovalStatus: "Approved", assessStatus: "Assessed", decision: null, decisionReason: "",
+      comments: "Excellent front-end depth; back-end exposure limited.", override: null,
+      criteria: {
+        reqSkills: { score: 70, evidence: [ev("Built design-system component library in React/TypeScript used by 6 teams.", "Experience · CS Tools")] },
+        experience: { score: 62, evidence: [ev("4.5 years relevant experience (below 5-year minimum).", "Summary")] },
+        quals: { score: 70, evidence: [ev("B.E. Information Technology. No certifications listed.", "Education")] },
+        prefSkills: { score: 68, evidence: [ev("Set up GitHub Actions pipelines for front-end deployments.", "Projects")] },
+        resp: { score: 65, evidence: [ev("Collaborated with product designers on release planning.", "Experience")] } } },
+    { id: "APP-5003", jobId: "JOB-2026-1001", name: "Sneha Kulkarni", empId: "EMP-11920", dept: "Customer Success", designation: "Software Engineer", grade: "G5",
+      tenureMonths: 26, relExp: 5, skills: ["JavaScript", "Node.js", "SQL", "REST APIs", "AWS"],
+      education: "M.C.A. – University of Pune", certs: ["AWS Cloud Practitioner"], resumeFile: "Sneha_Kulkarni_Resume.pdf",
+      appliedAt: "2026-10-06", mgrApprovalStatus: "Approved", assessStatus: "Under Review", decision: null, decisionReason: "",
+      comments: "Solid back-end background; React experience not evidenced in resume.", override: null,
+      criteria: {
+        reqSkills: { score: 74, evidence: [ev("Developed Node.js microservices for ticket routing; SQL reporting jobs.", "Experience · CS Platform")] },
+        experience: { score: 70, evidence: [ev("5 years software development.", "Summary")] },
+        quals: { score: 62, evidence: [ev("MCA; AWS Cloud Practitioner (foundational).", "Education & Certifications")] },
+        prefSkills: { score: 50, evidence: [ev("Deployed Lambda functions on AWS.", "Projects")] },
+        resp: { score: 66, evidence: [ev("Coordinated releases with QA team.", "Experience")] } } },
+    { id: "APP-5004", jobId: "JOB-2026-1001", name: "Imran Shaikh", empId: "EMP-07654", dept: "IT Infrastructure", designation: "Systems Engineer", grade: "G5",
+      tenureMonths: 51, relExp: 2.5, skills: ["JavaScript", "Docker", "AWS", "Linux"],
+      education: "B.Sc. Computer Science – Osmania University", certs: ["AWS Solutions Architect – Associate"], resumeFile: "Imran_Shaikh.pdf",
+      appliedAt: "2026-10-07", mgrApprovalStatus: "Approved", assessStatus: "Assessed", decision: "Rejected",
+      decisionReason: "Relevant development experience below minimum; encouraged to apply for Cloud Infrastructure Specialist.",
+      comments: "Strong infra profile — better fit for JOB-2026-1004.", override: null,
+      criteria: {
+        reqSkills: { score: 45, evidence: [ev("Wrote internal JavaScript tooling for server inventory.", "Projects")] },
+        experience: { score: 38, evidence: [ev("2.5 years development-related work within infra role.", "Summary")] },
+        quals: { score: 72, evidence: [ev("B.Sc CS; AWS Solutions Architect – Associate.", "Certifications")] },
+        prefSkills: { score: 70, evidence: [ev("Docker and AWS used daily for infrastructure automation.", "Experience")] },
+        resp: { score: 40, evidence: [ev("No product feature delivery evidenced.", "Reviewer note")] } } },
+    { id: "APP-5005", jobId: "JOB-2026-1001", name: "Meera Nair", empId: "EMP-12455", dept: "Product Management", designation: "Associate Product Manager", grade: "G5",
+      tenureMonths: 18, relExp: 5, skills: ["JavaScript", "React", "SQL", "Jira"],
+      education: "B.Tech, Electronics – CUSAT", certs: [], resumeFile: "Meera_Nair_Resume.docx",
+      appliedAt: "2026-10-12", mgrApprovalStatus: "Pending", assessStatus: "Pending Assessment", decision: null, decisionReason: "",
+      comments: "", override: null, criteria: null },
+    { id: "APP-5006", jobId: "JOB-2026-1002", name: "Vikram Rao", empId: "EMP-09918", dept: "Finance", designation: "Senior Analyst – FP&A Analytics", grade: "G5",
+      tenureMonths: 44, relExp: 4, skills: ["Python", "SQL", "Statistics", "Machine Learning", "Tableau"],
+      education: "M.Sc. Statistics – University of Hyderabad", certs: ["Google Data Analytics Certificate"], resumeFile: "Vikram_Rao_CV.pdf",
+      appliedAt: "2026-10-07", mgrApprovalStatus: "Approved", assessStatus: "Assessed", decision: "Shortlisted", decisionReason: "Meets all required skills.",
+      comments: "Built revenue forecasting model in Python — directly relevant.", override: null,
+      criteria: {
+        reqSkills: { score: 85, evidence: [ev("Built gradient-boosted revenue forecast model (Python, scikit-learn) with 6% MAPE.", "Experience · FP&A Analytics")] },
+        experience: { score: 78, evidence: [ev("4 years analytics/modelling experience.", "Summary")] },
+        quals: { score: 88, evidence: [ev("M.Sc. Statistics.", "Education")] },
+        prefSkills: { score: 62, evidence: [ev("Tableau dashboards for CFO office; no PySpark evidenced.", "Projects")] },
+        resp: { score: 75, evidence: [ev("Presented monthly forecast insights to finance leadership.", "Experience")] } } },
+    { id: "APP-5007", jobId: "JOB-2026-1002", name: "Farah Khan", empId: "EMP-11302", dept: "Marketing", designation: "Marketing Analyst", grade: "G4",
+      tenureMonths: 22, relExp: 3, skills: ["SQL", "Python", "A/B Testing", "Tableau"],
+      education: "B.Com, MBA (Marketing Analytics) – NMIMS", certs: [], resumeFile: "Farah_Khan_Resume.pdf",
+      appliedAt: "2026-10-13", mgrApprovalStatus: "Approved", assessStatus: "Pending Assessment", decision: null, decisionReason: "",
+      comments: "", override: null, criteria: null },
+    { id: "APP-5008", jobId: "JOB-2026-1002", name: "Deepak Pillai", empId: "EMP-08470", dept: "Operations", designation: "MIS Executive", grade: "G4",
+      tenureMonths: 60, relExp: 2, skills: ["SQL", "Excel", "Python"],
+      education: "B.Sc. Mathematics – Kerala University", certs: ["Python for Data Science (online)"], resumeFile: "Deepak_Pillai.docx",
+      appliedAt: "2026-10-09", mgrApprovalStatus: "Approved", assessStatus: "Assessed", decision: "On Hold", decisionReason: "Revisit if pipeline is thin.",
+      comments: "Good SQL; ML exposure limited to coursework.", override: null,
+      criteria: {
+        reqSkills: { score: 55, evidence: [ev("Automated MIS reports with SQL and Python scripts.", "Experience · Operations")] },
+        experience: { score: 45, evidence: [ev("2 years analytics-adjacent experience (below 3-year minimum).", "Summary")] },
+        quals: { score: 65, evidence: [ev("B.Sc. Mathematics; online Python certificate.", "Education")] },
+        prefSkills: { score: 30, evidence: [ev("No PySpark, Tableau or experimentation evidenced.", "Reviewer note")] },
+        resp: { score: 50, evidence: [ev("Shares weekly ops dashboards with managers.", "Experience")] } } },
+    { id: "APP-5009", jobId: "JOB-2026-1003", name: "Sanjay Gupta", empId: "EMP-05121", dept: "Engineering", designation: "Lead Engineer", grade: "G7",
+      tenureMonths: 74, relExp: 11, skills: ["People Management", "Agile Delivery", "Microservices", "Kubernetes", "Stakeholder Management"],
+      education: "B.Tech, Computer Engineering – COEP", certs: ["Certified ScrumMaster"], resumeFile: "Sanjay_Gupta_Resume.pdf",
+      appliedAt: "2026-10-05", mgrApprovalStatus: "Approved", assessStatus: "Assessed", decision: "Shortlisted", decisionReason: "Strong leadership evidence.",
+      comments: "Has acted as interim manager for 8 months.", override: null,
+      criteria: {
+        leadership: { score: 86, evidence: [ev("Managed team of 7 engineers as interim EM (Jan–Aug 2026); 2 promotions.", "Experience · Platform")] },
+        domain: { score: 88, evidence: [ev("Architected service mesh migration for 40 microservices on Kubernetes.", "Projects")] },
+        stakeholder: { score: 80, evidence: [ev("Quarterly roadmap reviews with 4 product heads.", "Experience")] },
+        reqSkills: { score: 85, evidence: [ev("Ran Scrum for two squads; Certified ScrumMaster.", "Certifications")] },
+        quals: { score: 75, evidence: [ev("B.Tech Computer Engineering.", "Education")] } } },
+    { id: "APP-5010", jobId: "JOB-2026-1003", name: "Lakshmi Menon", empId: "EMP-06640", dept: "IT Infrastructure", designation: "Technical Program Manager", grade: "G7",
+      tenureMonths: 57, relExp: 9, skills: ["Agile Delivery", "Stakeholder Management", "People Management"],
+      education: "M.Tech, Software Systems – BITS Pilani", certs: ["PMP"], resumeFile: "Lakshmi_Menon_CV.pdf",
+      appliedAt: "2026-10-08", mgrApprovalStatus: "Approved", assessStatus: "Assessed", decision: null, decisionReason: "",
+      comments: "Strong delivery management; microservices depth to be validated.", override: null,
+      criteria: {
+        leadership: { score: 72, evidence: [ev("Led cross-functional program of 25 people (matrix, no direct reports).", "Experience")] },
+        domain: { score: 60, evidence: [ev("Coordinated data-centre to AWS migration program.", "Projects")] },
+        stakeholder: { score: 88, evidence: [ev("Single point of contact for CIO office on infra modernisation.", "Experience")] },
+        reqSkills: { score: 70, evidence: [ev("PMP; Agile delivery across 3 programs.", "Certifications")] },
+        quals: { score: 80, evidence: [ev("M.Tech Software Systems; PMP.", "Education")] } } },
+    { id: "APP-5011", jobId: "JOB-2026-1004", name: "Sneha Kulkarni", empId: "EMP-11920", dept: "Customer Success", designation: "Software Engineer", grade: "G5",
+      tenureMonths: 26, relExp: 2, skills: ["AWS", "Linux", "Python"],
+      education: "M.C.A. – University of Pune", certs: ["AWS Cloud Practitioner"], resumeFile: "Sneha_Kulkarni_Cloud.pdf",
+      appliedAt: "2026-10-14", mgrApprovalStatus: "Pending", assessStatus: "Pending Assessment", decision: null, decisionReason: "",
+      comments: "", override: null, criteria: null },
+    { id: "APP-5012", jobId: "JOB-2026-0994", name: "Sneha Kulkarni", empId: "EMP-11920", dept: "Customer Success", designation: "Software Engineer", grade: "G5",
+      tenureMonths: 26, relExp: 1, skills: ["Selenium", "Java"],
+      education: "M.C.A. – University of Pune", certs: [], resumeFile: "Sneha_K_QA.pdf",
+      appliedAt: "2026-08-20", mgrApprovalStatus: "Approved", assessStatus: "Assessed", decision: "Rejected", decisionReason: "Position filled.",
+      comments: "Position filled by a candidate with more automation leadership experience.", override: null,
+      criteria: {
+        reqSkills: { score: 50, evidence: [ev("Wrote Selenium smoke tests for internal tool.", "Projects")] },
+        experience: { score: 30, evidence: [ev("1 year test-automation exposure.", "Summary")] },
+        quals: { score: 60, evidence: [ev("MCA.", "Education")] },
+        prefSkills: { score: 40, evidence: [ev("Basic CI usage.", "Projects")] },
+        resp: { score: 35, evidence: [ev("No team leadership evidenced.", "Reviewer note")] } } },
+    { id: "APP-5013", jobId: "JOB-2026-1005", name: "Arvind Kumar", empId: "EMP-10011", dept: "Operations", designation: "Cost Analyst", grade: "G4",
+      tenureMonths: 33, relExp: 3, skills: ["Excel", "Budgeting", "Variance Analysis", "SAP"],
+      education: "B.Com; CMA Inter", certs: ["CMA (Intermediate)"], resumeFile: "Arvind_Kumar_Resume.pdf",
+      appliedAt: "2026-10-06", mgrApprovalStatus: "Approved", assessStatus: "Assessed", decision: null, decisionReason: "",
+      comments: "Good cost-centre budgeting exposure.", override: { score: 72, reason: "Hiring manager confirmed SAP CO module expertise in pre-screen call, not reflected in resume.", by: "Neha Joshi", at: "2026-10-10" },
+      criteria: {
+        reqSkills: { score: 70, evidence: [ev("Prepared monthly cost-centre budgets and variance reports for 12 plants.", "Experience · Operations Finance")] },
+        experience: { score: 65, evidence: [ev("3 years cost and budget analysis.", "Summary")] },
+        quals: { score: 60, evidence: [ev("B.Com; CMA Intermediate cleared.", "Education")] },
+        prefSkills: { score: 70, evidence: [ev("SAP CO user for cost allocations.", "Skills")] } } },
+  ];
+
+  const activities = [
+    { at: "2026-10-14T16:20", text: "Sneha Kulkarni applied to Cloud Infrastructure Specialist", type: "apply" },
+    { at: "2026-10-13T11:05", text: "Farah Khan applied to Data Scientist – Customer Analytics", type: "apply" },
+    { at: "2026-10-12T17:40", text: "HR Business Partner – Technology submitted for approval", type: "workflow" },
+    { at: "2026-10-12T09:15", text: "Meera Nair applied to Senior Full Stack Engineer", type: "apply" },
+    { at: "2026-10-10T14:30", text: "Score override recorded for Arvind Kumar (72) by Neha Joshi", type: "assess" },
+    { at: "2026-10-09T10:00", text: "Rohan Verma shortlisted for Senior Full Stack Engineer", type: "decision" },
+  ];
+
+  return { lookups, profiles, jobs, apps, activities, seq: { job: 1008, app: 5014 } };
+}
+
+/* =====================================================================
+   SECTION C — DATA STORE + API FACADE
+   Every read/write goes through `api`. To integrate a backend, replace
+   these method bodies with fetch() calls to REST endpoints, e.g.
+     api.listJobs()      -> GET   /api/jobs?status=&q=
+     api.saveJob(job)    -> POST  /api/jobs  |  PUT /api/jobs/{id}
+     api.setJobStatus()  -> POST  /api/jobs/{id}/transitions
+     api.saveAssessment()-> PUT   /api/applications/{id}/assessment
+     api.recordDecision()-> POST  /api/applications/{id}/decision
+   Authorization must then be enforced SERVER-SIDE; the client-side role
+   checks below are for demonstration only.
+   ===================================================================== */
+const STORE_KEY = "talenthub.v1";
+const DRAFT_KEY = "talenthub.jobFormDraft";
+const PREF_KEY = "talenthub.prefs";
+
+const safeStorage = {
+  get(k) { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch (e) { return false; } },
+  remove(k) { try { localStorage.removeItem(k); } catch (e) { /* ignore */ } },
+};
+
+let DB = safeStorage.get(STORE_KEY) || seedData();
+function persist() {
+  if (!safeStorage.set(STORE_KEY, DB)) toast("Could not save to browser storage — changes will be lost on reload.", "warn");
+}
+
+const api = {
+  listJobs: () => DB.jobs,
+  getJob: (id) => DB.jobs.find(j => j.id === id) || null,
+  nextJobId() { return "JOB-2026-" + String(DB.seq.job); },
+  saveJob(job) {
+    const i = DB.jobs.findIndex(j => j.id === job.id);
+    if (i >= 0) DB.jobs[i] = job;
+    else { DB.jobs.unshift(job); DB.seq.job++; }
+    persist(); return job;
+  },
+  setJobStatus(id, status, note) {
+    const j = api.getJob(id); if (!j) throw new Error("Job not found");
+    j.status = status;
+    j.history = j.history || [];
+    j.history.push({ at: nowStamp(), by: currentUser().name, status, note: note || "" });
+    persist(); return j;
+  },
+  listApps: (filter) => DB.apps.filter(a => !filter || Object.entries(filter).every(([k, v]) => a[k] === v)),
+  getApp: (id) => DB.apps.find(a => a.id === id) || null,
+  createApp(app) { app.id = "APP-" + DB.seq.app++; DB.apps.unshift(app); persist(); return app; },
+  updateApp(id, patch) { const a = api.getApp(id); if (!a) throw new Error("Application not found"); Object.assign(a, patch); persist(); return a; },
+  getProfile: (id) => DB.profiles.find(p => p.id === id) || null,
+  logActivity(text, type) { DB.activities.unshift({ at: nowStamp(), text, type: type || "info" }); DB.activities = DB.activities.slice(0, 50); persist(); },
+  reset() { DB = seedData(); persist(); safeStorage.remove(DRAFT_KEY); },
+};
+
+/* =====================================================================
+   SECTION D — UTILITIES
+   ===================================================================== */
+const $ = (sel, root = document) => root.querySelector(sel);
+const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
+
+/** Escape any untrusted string before inserting into HTML (resume text, comments, etc.). */
+function esc(v) {
+  return String(v == null ? "" : v).replace(/[&<>"'`]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;", "`": "&#96;" }[c]));
+}
+function nowStamp() { const d = new Date(); return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16); }
+function fmtDate(s) {
+  if (!s) return "—";
+  const d = new Date(s.length <= 10 ? s + "T00:00" : s);
+  if (isNaN(d)) return esc(s);
+  return d.toLocaleDateString(undefined, { day: "2-digit", month: "short", year: "numeric" }) +
+    (s.length > 10 ? " " + d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" }) : "");
+}
+function daysBetween(a, b) { return Math.round((new Date(b + "T00:00") - new Date(a + "T00:00")) / 86400000); }
+function initials(name) { return String(name).split(/\s+/).map(p => p[0]).join("").slice(0, 2).toUpperCase(); }
+const norm = s => String(s).trim().toLowerCase();
+function icon(path, size) { return `<svg width="${size || 18}" height="${size || 18}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${path}"/></svg>`; }
+function optionList(items, selected, placeholder) {
+  return (placeholder ? `<option value="">${esc(placeholder)}</option>` : "") +
+    items.map(v => `<option value="${esc(v)}" ${v === selected ? "selected" : ""}>${esc(v)}</option>`).join("");
+}
+function emptyState(title, text, actionHtml) {
+  return `<div class="empty">${icon("M3 7h18v13H3zM8 7V4h8v3", 42)}<h3>${esc(title)}</h3><p>${esc(text)}</p>${actionHtml || ""}</div>`;
+}
+
+/* ---- Status badges ---- */
+const STATUS_CLASS = {
+  "Draft": "", "Pending Approval": "b-warning", "Published": "b-success", "Closed": "b-info", "Cancelled": "b-danger",
+  "Pending Assessment": "b-warning", "Under Review": "b-info", "Assessed": "b-primary",
+  "Shortlisted": "b-success", "On Hold": "b-warning", "Rejected": "b-danger", "Withdrawn": "",
+  "Approved": "b-success", "Pending": "b-warning", "Declined": "b-danger", "Not required": "",
+};
+const badge = (s) => `<span class="badge ${STATUS_CLASS[s] || ""}">${esc(s || "—")}</span>`;
+
+/* =====================================================================
+   SECTION E — SCORING (weighted, transparent, decision-support only)
+   Inputs are ONLY job-related criteria. No personal characteristics are
+   stored in `criteria`, and the formula is shown to the reviewer.
+   ===================================================================== */
+const scoring = {
+  /** Sum of weights for a criteria list. */
+  totalWeight: (criteria) => criteria.reduce((s, c) => s + (Number(c.weight) || 0), 0),
+
+  /** Weighted score = Σ(criterion score × weight) / 100. Returns null if not assessed. */
+  computed(app, job) {
+    if (!app || !app.criteria || !job) return null;
+    const ws = job.weights || [];
+    if (scoring.totalWeight(ws) !== 100) return null;
+    let total = 0;
+    for (const c of ws) {
+      const entry = app.criteria[c.key];
+      if (!entry || entry.score === "" || entry.score == null) return null;
+      total += Number(entry.score) * c.weight / 100;
+    }
+    return Math.round(total * 10) / 10;
+  },
+  /** Final score = manual override if present, else computed. */
+  final(app, job) { return app && app.override ? Number(app.override.score) : scoring.computed(app, job); },
+  band(score) {
+    if (score == null) return { label: "Not assessed", cls: "", color: "var(--text-3)" };
+    if (score >= 80) return { label: "Strong match", cls: "b-success", color: "var(--success)" };
+    if (score >= 65) return { label: "Good match", cls: "b-primary", color: "var(--primary)" };
+    if (score >= 50) return { label: "Partial match", cls: "b-warning", color: "var(--warning)" };
+    return { label: "Low match", cls: "b-danger", color: "var(--danger)" };
+  },
+  /** Simple keyword comparison of the candidate's listed skills vs. job skills (case-insensitive). */
+  skillMatch(app, job) {
+    const have = new Set((app.skills || []).map(norm));
+    const req = job.reqSkills || [], pref = job.prefSkills || [];
+    const matchedReq = req.filter(s => have.has(norm(s)));
+    const matchedPref = pref.filter(s => have.has(norm(s)));
+    const missing = req.filter(s => !have.has(norm(s))).map(s => ({ item: s, kind: "Required skill not evidenced" }));
+    if (Number(app.relExp) < Number(job.minExp)) missing.push({ item: `Minimum ${job.minExp} yrs relevant experience (has ${app.relExp})`, kind: "Below minimum" });
+    if (job.certifications && !/^none/i.test(job.certifications) && !(app.certs || []).length)
+      missing.push({ item: job.certifications, kind: "Certification not listed" });
+    if (job.eligibleGrades && job.eligibleGrades.length && !job.eligibleGrades.includes(app.grade))
+      missing.push({ item: `Grade ${app.grade} not in eligible grades (${job.eligibleGrades.join(", ")})`, kind: "Eligibility" });
+    if (Number(app.tenureMonths) < Number(job.minTenure || 0))
+      missing.push({ item: `Company tenure ${app.tenureMonths} months (minimum ${job.minTenure})`, kind: "Eligibility" });
+    const coverage = req.length ? Math.round(matchedReq.length / req.length * 100) : 0;
+    return { matchedReq, matchedPref, missing, coverage };
+  },
+};
+
+/* =====================================================================
+   SECTION F — SESSION / ROLE (demo only — no real authentication)
+   ===================================================================== */
+const prefs = Object.assign({ role: "recruiter", theme: "" }, safeStorage.get(PREF_KEY) || {});
+const currentRole = () => prefs.role;
+const currentUser = () => USERS[prefs.role];
+const canAccess = (moduleId) => { const m = MODULES.find(x => x.id === moduleId); return !!m && m.roles.includes(currentRole()); };
+const isRecruiter = () => currentRole() === "recruiter";
+const isManager = () => currentRole() === "manager";
+function savePrefs() { safeStorage.set(PREF_KEY, prefs); }
+
+/* =====================================================================
+   SECTION G — TOASTS & MODAL
+   ===================================================================== */
+function toast(msg, type) {
+  const el = document.createElement("div");
+  el.className = "toast " + (type || "");
+  el.setAttribute("role", type === "error" ? "alert" : "status");
+  el.textContent = msg;
+  $("#toasts").appendChild(el);
+  setTimeout(() => el.remove(), type === "error" ? 6000 : 3800);
+}
+
+const modal = {
+  lastFocus: null,
+  /** open({title, body(html), foot(html), size:'wide'|'narrow', onOpen(rootEl)}) */
+  open(opts) {
+    modal.lastFocus = document.activeElement;
+    $("#modalTitle").textContent = opts.title || "";
+    $("#modalBody").innerHTML = opts.body || "";
+    $("#modalFoot").innerHTML = opts.foot || `<button class="btn" data-close>Close</button>`;
+    $("#modal").className = "modal " + (opts.size || "");
+    const bd = $("#modalBackdrop");
+    bd.classList.add("open"); bd.setAttribute("aria-hidden", "false");
+    if (opts.onOpen) opts.onOpen($("#modal"));
+    const first = $("#modal").querySelector("input,select,textarea,button:not([data-close])") || $("#modal [data-close]");
+    if (first) first.focus();
+  },
+  close() {
+    const bd = $("#modalBackdrop");
+    bd.classList.remove("open"); bd.setAttribute("aria-hidden", "true");
+    $("#modalBody").innerHTML = "";
+    if (modal.lastFocus && modal.lastFocus.focus) modal.lastFocus.focus();
+  },
+  isOpen: () => $("#modalBackdrop").classList.contains("open"),
+};
+
+/** Confirmation dialog with optional mandatory reason. onConfirm(reason) */
+function confirmDialog({ title, message, confirmLabel, danger, requireReason, reasonLabel, onConfirm }) {
+  modal.open({
+    title, size: "narrow",
+    body: `<p>${esc(message)}</p>` + (requireReason !== undefined ? `
+      <div class="field"><label for="cfReason" class="${requireReason ? "req" : ""}">${esc(reasonLabel || "Reason / comment")}</label>
+      <textarea id="cfReason" class="input" maxlength="500"></textarea><div class="err" id="cfErr"></div></div>` : ""),
+    foot: `<button class="btn" data-close>Cancel</button>
+           <button class="btn ${danger ? "btn-danger" : "btn-primary"}" id="cfOk">${esc(confirmLabel || "Confirm")}</button>`,
+    onOpen(root) {
+      $("#cfOk", root).addEventListener("click", () => {
+        const r = $("#cfReason", root);
+        const reason = r ? r.value.trim() : "";
+        if (requireReason && reason.length < 5) {
+          $("#cfErr", root).textContent = "Please enter a reason (at least 5 characters).";
+          r.setAttribute("aria-invalid", "true"); r.focus(); return;
+        }
+        modal.close(); onConfirm(reason);
+      });
+    },
+  });
+}
+
+/* =====================================================================
+   SECTION H — ROUTER & SHELL
+   Hash routes: #/module[/sub][?key=value]
+   ===================================================================== */
+const VIEWS = {};   // populated by module sections below
+
+function parseRoute() {
+  const raw = location.hash.replace(/^#\/?/, "") || "dashboard";
+  const [path, qs] = raw.split("?");
+  const parts = path.split("/").filter(Boolean);
+  const params = {};
+  (qs || "").split("&").filter(Boolean).forEach(p => { const [k, v] = p.split("="); params[decodeURIComponent(k)] = decodeURIComponent(v || ""); });
+  return { module: parts[0] || "dashboard", sub: parts[1] || "", id: parts[2] || "", params };
+}
+function go(hash) { if (location.hash === hash) render(); else location.hash = hash; }
+
+function renderNav() {
+  const route = parseRoute();
+  $("#nav").innerHTML = MODULES.map(m => {
+    const allowed = m.roles.includes(currentRole());
+    return `<li><button data-nav="${m.id}" class="${route.module === m.id ? "active" : ""}" ${route.module === m.id ? 'aria-current="page"' : ""}>
+      ${icon(m.icon)}<span>${esc(m.label)}</span>${allowed ? "" : '<span class="lock" title="Restricted for your role">🔒</span>'}</button></li>`;
+  }).join("");
+  const u = currentUser();
+  $("#userName").textContent = u.name; $("#userRole").textContent = u.role; $("#userAvatar").textContent = u.initials;
+  $("#roleSelect").value = currentRole();
+}
+
+function render() {
+  const route = parseRoute();
+  const mod = MODULES.find(m => m.id === route.module);
+  renderNav();
+  closeSidebar();
+  if (modal.isOpen()) modal.close();
+  const view = $("#view");
+  if (!mod || !VIEWS[route.module]) {
+    $("#pageTitle").textContent = "Not found";
+    view.innerHTML = `<div class="card">${emptyState("Page not found", "The requested page does not exist.", '<a class="btn btn-primary" href="#/dashboard">Go to Dashboard</a>')}</div>`;
+    return;
+  }
+  $("#pageTitle").textContent = mod.label;
+  if (!canAccess(mod.id)) {
+    view.innerHTML = `<div class="card"><div class="empty">${icon("M5 11h14v10H5zM8 11V7a4 4 0 0 1 8 0v4", 42)}
+      <h3>Access restricted</h3><p>The <b>${esc(mod.label)}</b> module is not available to the <b>${esc(currentUser().role)}</b> role.
+      Candidate resumes and assessment data are only visible to authorised recruiters and hiring managers.</p>
+      <a class="btn btn-primary" href="#/dashboard">Back to Dashboard</a></div></div>`;
+    return;
+  }
+  try {
+    view.innerHTML = VIEWS[route.module].render(route);
+    if (VIEWS[route.module].bind) VIEWS[route.module].bind(route, view);
+  } catch (err) {
+    console.error(err);
+    view.innerHTML = `<div class="card"><div class="notice notice-danger"><b>Something went wrong while loading this page.</b><br>${esc(err.message)}</div>
+      <button class="btn" onclick="location.reload()">Reload</button></div>`;
+  }
+  view.focus({ preventScroll: true });
+  window.scrollTo(0, 0);
+}
+
+function closeSidebar() { $("#sidebar").classList.remove("open"); $("#scrim").classList.remove("open"); $("#menuBtn").setAttribute("aria-expanded", "false"); }
+
+function applyTheme() {
+  if (prefs.theme) document.documentElement.setAttribute("data-theme", prefs.theme);
+  else document.documentElement.removeAttribute("data-theme");
+}
+function effectiveTheme() {
+  return prefs.theme || (window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+}
+
+/* Shared helpers used across views */
+function jobTitle(id) { const j = api.getJob(id); return j ? j.title : id; }
+function appStage(a) {
+  if (a.decision) return a.decision;
+  return a.assessStatus;
+}
+function scorePill(app) {
+  const job = api.getJob(app.jobId);
+  const s = scoring.final(app, job);
+  if (s == null) return `<span class="badge">Not assessed</span>`;
+  const b = scoring.band(s);
+  return `<span class="badge ${b.cls}" title="${esc(b.label)}">${s}${app.override ? " ✎" : ""}</span>`;
+}
+
+/* =====================================================================
+   SECTION I — MODULE: DASHBOARD
+   ===================================================================== */
+/* Demo profile of the logged-in employee (from HRIS in production). */
+const EMPLOYEE_PROFILE = { dept: "Customer Success", grade: "G5", tenureMonths: 26, perf: "Meets Expectations", designation: "Software Engineer",
+  relExp: 5, education: "M.C.A. – University of Pune" };
+
+function statCard(label, value, sub, iconPath, tone) {
+  const tones = { primary: ["var(--primary-soft)", "var(--primary)"], success: ["var(--success-soft)", "var(--success)"],
+    warning: ["var(--warning-soft)", "var(--warning)"], info: ["var(--info-soft)", "var(--info)"] }[tone || "primary"];
+  return `<div class="card stat"><div class="stat-icon" style="background:${tones[0]};color:${tones[1]}">${icon(iconPath, 22)}</div>
+    <div><div class="v">${esc(value)}</div><div class="l">${esc(label)}</div>${sub ? `<div class="hint">${esc(sub)}</div>` : ""}</div></div>`;
+}
+
+VIEWS.dashboard = {
+  render() {
+    const jobs = api.listJobs(), apps = api.listApps();
+    const open = jobs.filter(j => j.status === "Published");
+    const featured = open.filter(j => j.featured).slice(0, 4);
+    const u = currentUser();
+    const head = `<div class="page-head"><div><h1>Welcome back, ${esc(u.name.split(" ")[0])}</h1>
+      <p>${esc(new Date().toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long", year: "numeric" }))} · ${esc(u.role)} view</p></div>
+      ${currentRole() !== "employee" ? '<a class="btn btn-primary" href="#/jobs/new">+ New Job Posting</a>' : '<a class="btn btn-primary" href="#/jobs">Browse open roles</a>'}</div>`;
+
+    const featuredHtml = featured.length ? featured.map(j => `
+      <div class="card job-card">
+        <div style="display:flex;justify-content:space-between;gap:.5rem;align-items:flex-start"><h3 style="margin:0">${esc(j.title)}</h3>${badge(j.workMode)}</div>
+        <div class="meta"><span>${esc(j.department)}</span><span>${esc(j.grade)}</span><span>${esc(j.location)}</span><span>Closes ${fmtDate(j.closeDate)}</span></div>
+        <p class="small muted" style="margin:0">${esc(j.summary)}</p>
+        <div><button class="btn btn-sm" data-view-job="${esc(j.id)}">View details</button></div>
+      </div>`).join("") : emptyState("No featured jobs", "Featured roles will appear here once published.");
+
+    if (currentRole() === "employee") {
+      const mine = apps.filter(a => a.empId === u.empId);
+      const eligible = open.filter(j => eligibilityChecks(j).every(c => c.ok));
+      return head + `<div class="grid g-4">
+        ${statCard("Open positions", open.length, open.reduce((s, j) => s + Number(j.openings), 0) + " openings", "M4 7h16v13H4zM9 7V4h6v3", "primary")}
+        ${statCard("My applications", mine.length, "", "M6 3h9l5 5v13H6z", "info")}
+        ${statCard("In progress", mine.filter(a => !a.decision).length, "", "M12 6v6l4 2", "warning")}
+        ${statCard("Roles I'm eligible for", eligible.length, "Based on grade, department & tenure", "M9 11l3 3 8-8", "success")}
+      </div>
+      <div class="grid g-2-1" style="margin-top:1rem">
+        <div><div class="card-head"><h2>Featured internal jobs</h2><a href="#/jobs" class="small">View all</a></div><div class="grid g-2">${featuredHtml}</div></div>
+        <div class="card"><div class="card-head"><h2>My application updates</h2></div>
+          ${mine.length ? `<ul class="list">${mine.map(a => `<li><span class="dot"></span><div><b>${esc(jobTitle(a.jobId))}</b><br>
+            <span class="small muted">Applied ${fmtDate(a.appliedAt)}</span> ${badge(employeeFacingStatus(a))}</div></li>`).join("")}</ul>`
+            : emptyState("No applications yet", "Apply to an open role to track it here.")}
+        </div></div>`;
+    }
+
+    const pending = apps.filter(a => a.assessStatus === "Pending Assessment");
+    const assessed = apps.filter(a => scoring.final(a, api.getJob(a.jobId)) != null);
+    const scores = assessed.map(a => scoring.final(a, api.getJob(a.jobId)));
+    const avg = scores.length ? (scores.reduce((s, x) => s + x, 0) / scores.length).toFixed(1) : "—";
+    const bands = ["Strong match", "Good match", "Partial match", "Low match"].map(l => ({ l, n: scores.filter(s => scoring.band(s).label === l).length }));
+    const bandColor = { "Strong match": "var(--success)", "Good match": "var(--primary)", "Partial match": "var(--warning)", "Low match": "var(--danger)" };
+
+    return head + `<div class="grid g-4">
+      ${statCard("Total open positions", open.length, open.reduce((s, j) => s + Number(j.openings), 0) + " openings across " + new Set(open.map(j => j.department)).size + " departments", "M4 7h16v13H4zM9 7V4h6v3", "primary")}
+      ${statCard("Total applications", apps.length, apps.filter(a => a.appliedAt >= daysAgo(7)).length + " in the last 7 days", "M6 3h9l5 5v13H6zM14 3v6h6", "info")}
+      ${statCard("Pending resume assessments", pending.length, "Awaiting recruiter review", "M12 6v6l4 2M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z", "warning")}
+      ${statCard("Shortlisted candidates", apps.filter(a => a.decision === "Shortlisted").length, "", "M9 11l3 3 8-8", "success")}
+    </div>
+    <div class="grid g-2-1" style="margin-top:1rem">
+      <div>
+        <div class="card-head"><h2>Featured internal jobs</h2><a href="#/jobs" class="small">View all postings</a></div>
+        <div class="grid g-2">${featuredHtml}</div>
+        <div class="card" style="margin-top:1rem">
+          <div class="card-head"><h2>Resume assessment summary</h2><a class="small" href="#/assessment">Open assessments</a></div>
+          <div class="grid g-3" style="margin-bottom:1rem">
+            <div><div class="muted small">Assessed resumes</div><div style="font-size:1.4rem;font-weight:700">${assessed.length}</div></div>
+            <div><div class="muted small">Average match score</div><div style="font-size:1.4rem;font-weight:700">${avg}</div></div>
+            <div><div class="muted small">Manual overrides</div><div style="font-size:1.4rem;font-weight:700">${apps.filter(a => a.override).length}</div></div>
+          </div>
+          <div class="bar-chart">${bands.map(b => `<div class="bar-row"><span>${esc(b.l)}</span>
+            <div class="track"><div class="fill" style="width:${scores.length ? b.n / scores.length * 100 : 0}%;background:${bandColor[b.l]}"></div></div><b>${b.n}</b></div>`).join("")}</div>
+          ${pending.length ? `<h3 style="margin-top:1rem">Awaiting assessment</h3><ul class="list">${pending.map(a => `<li><span class="dot" style="background:var(--warning)"></span>
+            <div style="flex:1"><b>${esc(a.name)}</b> <span class="muted small">· ${esc(jobTitle(a.jobId))}</span></div>
+            <a class="btn btn-sm" href="#/assessment?app=${esc(a.id)}">Assess</a></li>`).join("")}</ul>` : ""}
+          <p class="hint" style="margin-top:.75rem">Scores are decision-support information for reviewers, not automatic hiring decisions.</p>
+        </div>
+      </div>
+      <div class="card"><div class="card-head"><h2>Recent activity</h2></div>
+        ${DB.activities.length ? `<ul class="list">${DB.activities.slice(0, 9).map(a => `<li><span class="dot" style="background:${{ apply: "var(--info)", decision: "var(--success)", workflow: "var(--warning)", assess: "var(--primary)" }[a.type] || "var(--text-3)"}"></span>
+          <div><div>${esc(a.text)}</div><div class="small muted">${fmtDate(a.at)}</div></div></li>`).join("")}</ul>` : emptyState("No activity yet", "Actions taken in the portal will appear here.")}
+      </div>
+    </div>`;
+  },
+  bind(route, root) { bindJobViewButtons(root); },
+};
+function daysAgo(n) { const d = new Date(); d.setDate(d.getDate() - n); return d.toISOString().slice(0, 10); }
+
+/* Employees see a simplified status (internal assessment details are not exposed). */
+function employeeFacingStatus(a) {
+  if (a.decision === "Shortlisted") return "Shortlisted";
+  if (a.decision === "Rejected") return "Not selected";
+  if (a.decision === "Withdrawn") return "Withdrawn";
+  if (a.mgrApprovalStatus === "Pending") return "Awaiting manager approval";
+  return "Under review";
+}
+STATUS_CLASS["Not selected"] = "b-danger"; STATUS_CLASS["Awaiting manager approval"] = "b-warning";
+
+/* =====================================================================
+   SECTION J — MODULE: INTERNAL JOB POSTINGS (list, details, apply)
+   ===================================================================== */
+const jobFilters = { q: "", dept: "", status: "", mode: "", loc: "" };
+
+VIEWS.jobs = {
+  render(route) {
+    if (route.sub === "new" || route.sub === "edit") return JobForm.render(route);
+    const emp = currentRole() === "employee";
+    const L = DB.lookups;
+    return `<div class="page-head"><div><h1>Internal Job Postings</h1><p>${emp ? "Explore open internal opportunities and apply." : "Create, publish and manage internal vacancies."}</p></div>
+      ${emp ? "" : '<a class="btn btn-primary" href="#/jobs/new">+ New Job Posting</a>'}</div>
+      <div class="card">
+        <div class="toolbar" role="search">
+          <div class="grow"><label class="sr-only" for="fQ">Search jobs</label>
+            <input id="fQ" class="input" type="search" placeholder="Search by title, ID, skill or hiring manager…" value="${esc(jobFilters.q)}"></div>
+          <label class="sr-only" for="fDept">Department</label><select id="fDept" class="input" style="width:auto">${optionList(L.departments, jobFilters.dept, "All departments")}</select>
+          ${emp ? "" : `<label class="sr-only" for="fStatus">Status</label><select id="fStatus" class="input" style="width:auto">${optionList(CONFIG.jobStatuses, jobFilters.status, "All statuses")}</select>`}
+          <label class="sr-only" for="fMode">Work mode</label><select id="fMode" class="input" style="width:auto">${optionList(CONFIG.workModes, jobFilters.mode, "Any work mode")}</select>
+          <label class="sr-only" for="fLoc">Location</label><select id="fLoc" class="input" style="width:auto">${optionList(L.locations, jobFilters.loc, "Any location")}</select>
+          <button class="btn btn-ghost" id="fClear">Clear</button>
+        </div>
+        <div id="jobsTable"></div>
+      </div>`;
+  },
+  bind(route, root) {
+    if (route.sub === "new" || route.sub === "edit") return JobForm.bind(route, root);
+    const update = () => { $("#jobsTable").innerHTML = jobsTableHtml(); bindJobViewButtons($("#jobsTable")); };
+    [["#fQ", "q"], ["#fDept", "dept"], ["#fStatus", "status"], ["#fMode", "mode"], ["#fLoc", "loc"]].forEach(([sel, key]) => {
+      const el = $(sel, root); if (!el) return;
+      el.addEventListener(el.tagName === "INPUT" ? "input" : "change", () => { jobFilters[key] = el.value; update(); });
+    });
+    $("#fClear", root).addEventListener("click", () => { Object.keys(jobFilters).forEach(k => jobFilters[k] = ""); render(); });
+    update();
+    if (route.params.view) openJobDetails(route.params.view);
+  },
+};
+
+function filteredJobs() {
+  const emp = currentRole() === "employee";
+  const q = norm(jobFilters.q);
+  return api.listJobs().filter(j => {
+    if (emp && j.status !== "Published") return false;
+    if (jobFilters.dept && j.department !== jobFilters.dept) return false;
+    if (!emp && jobFilters.status && j.status !== jobFilters.status) return false;
+    if (jobFilters.mode && j.workMode !== jobFilters.mode) return false;
+    if (jobFilters.loc && j.location !== jobFilters.loc) return false;
+    if (q) {
+      const hay = [j.id, j.title, j.department, j.hiringManager, j.family, ...(j.reqSkills || []), ...(j.prefSkills || [])].join(" ").toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  });
+}
+
+function jobsTableHtml() {
+  const list = filteredJobs();
+  const emp = currentRole() === "employee";
+  if (!list.length) return emptyState("No job postings match your filters", "Try a different keyword or clear the filters.");
+  return `<p class="small muted" aria-live="polite">${list.length} posting${list.length === 1 ? "" : "s"} found</p>
+  <div class="table-wrap"><table><thead><tr><th>Job ID</th><th>Title</th><th>Department</th><th>Grade</th><th>Location / Mode</th><th>Closes</th>
+    ${emp ? "" : "<th>Applicants</th><th>Status</th>"}<th><span class="sr-only">Actions</span></th></tr></thead><tbody>
+    ${list.map(j => {
+      const n = api.listApps({ jobId: j.id }).length;
+      const applied = emp && api.listApps({ jobId: j.id, empId: currentUser().empId }).length;
+      return `<tr><td class="mono small">${esc(j.id)}</td><td><b>${esc(j.title)}</b>${j.featured ? ' <span class="badge b-primary">Featured</span>' : ""}<div class="small muted">${esc(j.family)}</div></td>
+      <td>${esc(j.department)}</td><td>${esc(j.grade)}</td><td>${esc(j.location)}<div class="small muted">${esc(j.workMode)}</div></td>
+      <td>${fmtDate(j.closeDate)}</td>${emp ? "" : `<td>${n}</td><td>${badge(j.status)}</td>`}
+      <td><div class="btn-row" style="flex-wrap:nowrap"><button class="btn btn-sm" data-view-job="${esc(j.id)}">View</button>
+        ${emp ? (applied ? '<span class="badge b-success">Applied</span>' : `<button class="btn btn-sm btn-primary" data-apply-job="${esc(j.id)}">Apply</button>`)
+              : (["Closed", "Cancelled"].includes(j.status) ? "" : `<a class="btn btn-sm" href="#/jobs/edit/${esc(j.id)}">Edit</a>`)}</div></td></tr>`;
+    }).join("")}</tbody></table></div>`;
+}
+
+function bindJobViewButtons(root) {
+  $$("[data-view-job]", root).forEach(b => b.addEventListener("click", () => openJobDetails(b.dataset.viewJob)));
+  $$("[data-apply-job]", root).forEach(b => b.addEventListener("click", () => openApplyDialog(b.dataset.applyJob)));
+}
+
+const WORKFLOW = ["Draft", "Pending Approval", "Published", "Closed"];
+function workflowSteps(status) {
+  if (status === "Cancelled") return `<div class="notice notice-danger">This posting was cancelled.</div>`;
+  const idx = WORKFLOW.indexOf(status);
+  return `<div class="steps" aria-label="Workflow progress">${WORKFLOW.map((s, i) => `<div class="step ${i < idx ? "done" : i === idx ? "current" : ""}">${esc(s)}</div>`).join("")}</div>`;
+}
+
+function openJobDetails(id) {
+  const j = api.getJob(id);
+  if (!j) { toast("Job posting not found.", "error"); return; }
+  const emp = currentRole() === "employee";
+  const lines = (t) => (t || "").split("\n").filter(Boolean).map(l => `<li>${esc(l)}</li>`).join("");
+  const chips = (arr, cls) => (arr || []).length ? arr.map(s => `<span class="chip ${cls || ""}">${esc(s)}</span>`).join("") : '<span class="muted">—</span>';
+  const applied = emp && api.listApps({ jobId: j.id, empId: currentUser().empId }).length;
+  const actions = [];
+  if (emp) {
+    if (j.status === "Published") actions.push(applied ? '<span class="badge b-success">You have applied</span>' : `<button class="btn btn-primary" id="jdApply">Apply now</button>`);
+  } else {
+    if (!["Closed", "Cancelled"].includes(j.status)) actions.push(`<a class="btn" href="#/jobs/edit/${esc(j.id)}">Edit</a>`);
+    actions.push(`<a class="btn" href="#/evaluation?job=${esc(j.id)}">View candidates (${api.listApps({ jobId: j.id }).length})</a>`);
+    if (j.status === "Draft") actions.push(`<button class="btn btn-primary" data-trans="submit">Submit for Approval</button>`);
+    if (j.status === "Published") actions.push(`<button class="btn btn-warning" data-trans="close">Close Job</button>`);
+    if (!["Closed", "Cancelled"].includes(j.status)) actions.push(`<button class="btn btn-danger" data-trans="cancel">Cancel Job</button>`);
+  }
+  modal.open({
+    title: j.title, size: "wide",
+    body: `<div style="display:flex;flex-wrap:wrap;gap:.5rem;align-items:center;margin-bottom:.6rem"><span class="mono small muted">${esc(j.id)}</span>
+        ${emp ? "" : badge(j.status)} ${badge(j.workMode)} <span class="badge">${esc(j.jobType)}</span></div>
+      ${emp ? "" : workflowSteps(j.status)}
+      <p>${esc(j.summary)}</p>
+      <div class="grid g-2">
+        <div><h3>Job details</h3><dl class="kv">
+          <dt>Department</dt><dd>${esc(j.department)}</dd><dt>Job family</dt><dd>${esc(j.family)}</dd><dt>Grade</dt><dd>${esc(j.grade)}</dd>
+          <dt>Hiring manager</dt><dd>${esc(j.hiringManager)}</dd><dt>Recruiter</dt><dd>${esc(j.recruiter)}</dd><dt>Openings</dt><dd>${esc(j.openings)}</dd>
+          <dt>Location</dt><dd>${esc(j.location)} · ${esc(j.workMode)}</dd>
+          <dt>Applications</dt><dd>${fmtDate(j.openDate)} – ${fmtDate(j.closeDate)}</dd><dt>Resume</dt><dd>${esc(j.resumeRequired)}</dd></dl></div>
+        <div><h3>Eligibility</h3><dl class="kv">
+          <dt>Departments</dt><dd>${esc((j.eligibleDepts || []).join(", ") || "All")}</dd><dt>Grades</dt><dd>${esc((j.eligibleGrades || []).join(", ") || "All")}</dd>
+          <dt>Min. tenure</dt><dd>${esc(j.minTenure)} months</dd><dt>Performance</dt><dd>${esc(j.perfEligibility)}</dd><dt>Manager approval</dt><dd>${esc(j.mgrApproval)}</dd></dl>
+          ${emp ? eligibilityHtml(j) : ""}</div>
+      </div>
+      <h3 style="margin-top:1rem">Key responsibilities</h3><ul>${lines(j.responsibilities)}</ul>
+      <div class="grid g-2"><div><h3>Required skills</h3>${chips(j.reqSkills)}</div><div><h3>Preferred skills</h3>${chips(j.prefSkills)}</div></div>
+      <dl class="kv" style="margin-top:1rem"><dt>Qualifications</dt><dd>${esc(j.reqQualifications)}</dd>
+        <dt>Experience</dt><dd>Minimum ${esc(j.minExp)} yrs · preferred ${esc(j.prefExp || "—")} yrs</dd><dt>Certifications</dt><dd>${esc(j.certifications || "—")}</dd></dl>
+      ${emp ? "" : `<h3 style="margin-top:1rem">Assessment profile — ${esc((api.getProfile(j.profileId) || {}).name || j.profileId)}</h3>
+        <div class="bar-chart">${(j.weights || []).map(c => `<div class="bar-row"><span>${esc(c.name)}</span><div class="track"><div class="fill" style="width:${c.weight}%"></div></div><b>${c.weight}%</b></div>`).join("")}</div>
+        <p class="hint">Minimum review threshold: ${esc(j.threshold)} / 100 (candidates below are flagged for careful review, not auto-rejected).</p>
+        ${(j.history || []).length ? `<h3>History</h3><ul class="list">${j.history.map(h => `<li><span class="dot"></span><div>${badge(h.status)} by ${esc(h.by)} · <span class="small muted">${fmtDate(h.at)}</span>${h.note ? `<div class="small">${esc(h.note)}</div>` : ""}</div></li>`).join("")}</ul>` : ""}`}`,
+    foot: `<button class="btn" data-close>Close</button>${actions.join("")}`,
+    onOpen(root) {
+      const ap = $("#jdApply", root); if (ap) ap.addEventListener("click", () => openApplyDialog(j.id));
+      $$("[data-trans]", root).forEach(b => b.addEventListener("click", () => jobTransition(j.id, b.dataset.trans)));
+    },
+  });
+}
+
+/** Status transitions shared by the details modal, the form and approvals. */
+function jobTransition(id, action, afterFn) {
+  const j = api.getJob(id); if (!j) return;
+  const done = (status, msg, note) => {
+    api.setJobStatus(id, status, note);
+    api.logActivity(`${j.title} ${msg} by ${currentUser().name}`, "workflow");
+    toast(`“${j.title}” ${msg}.`, "success");
+    if (afterFn) afterFn(); else render();
+  };
+  if (action === "submit") {
+    const errs = JobForm.validateJob(j, true);
+    if (errs.length) { toast("Cannot submit: " + errs[0].msg + " Open Edit to fix.", "error"); return; }
+    done("Pending Approval", "submitted for approval");
+  } else if (action === "close") {
+    confirmDialog({ title: "Close job posting", message: `Close “${j.title}”? New applications will no longer be accepted. Existing candidates remain available for evaluation.`,
+      confirmLabel: "Close Job", requireReason: false, reasonLabel: "Closing note (optional)", onConfirm: (r) => done("Closed", "closed", r) });
+  } else if (action === "cancel") {
+    confirmDialog({ title: "Cancel job posting", message: `Cancel “${j.title}”? This withdraws the vacancy. Applicants should be notified.`,
+      confirmLabel: "Cancel Job", danger: true, requireReason: true, reasonLabel: "Cancellation reason", onConfirm: (r) => done("Cancelled", "cancelled", r) });
+  } else if (action === "publish") {
+    if (!isManager() && !j.approved) { toast("Publishing requires approval. Submit for approval first (approvers: Hiring Manager role).", "error"); return; }
+    const errs = JobForm.validateJob(j, true);
+    if (errs.length) { toast("Cannot publish: " + errs[0].msg, "error"); return; }
+    j.approved = true;
+    done("Published", "published");
+  }
+}
+
+/* ---- Eligibility (employee self-check; enforced server-side in production) ---- */
+function eligibilityChecks(j) {
+  const p = EMPLOYEE_PROFILE;
+  return [
+    { label: `Department (${p.dept})`, ok: !(j.eligibleDepts || []).length || j.eligibleDepts.includes(p.dept) },
+    { label: `Grade (${p.grade})`, ok: !(j.eligibleGrades || []).length || j.eligibleGrades.includes(p.grade) },
+    { label: `Tenure (${p.tenureMonths} of ${j.minTenure} months)`, ok: p.tenureMonths >= Number(j.minTenure || 0) },
+    { label: `Performance (${p.perf})`, ok: true },
+  ];
+}
+function eligibilityHtml(j) {
+  return `<div class="card" style="margin-top:.6rem;padding:.7rem"><b class="small">Your eligibility</b><ul class="list small">${eligibilityChecks(j).map(c =>
+    `<li><span aria-hidden="true">${c.ok ? "✅" : "⚠️"}</span><span>${esc(c.label)} — ${c.ok ? "eligible" : "not eligible"}</span></li>`).join("")}</ul></div>`;
+}
+
+/** Validates a selected resume file: extension, MIME type and size. Content is NOT parsed. */
+function validateResumeFile(file) {
+  if (!file) return "Please select a resume file.";
+  const ext = (file.name.split(".").pop() || "").toLowerCase();
+  if (!CONFIG.allowedResumeExt.includes(ext)) return "Only PDF or DOCX files are accepted.";
+  if (file.type && !CONFIG.allowedResumeMime.includes(file.type)) return "File type does not match a PDF or DOCX document.";
+  if (file.size === 0) return "The selected file is empty.";
+  if (file.size > CONFIG.maxResumeBytes) return "File exceeds the 5 MB limit.";
+  return "";
+}
+
+function openApplyDialog(jobId) {
+  const j = api.getJob(jobId);
+  if (!j || j.status !== "Published") { toast("This job is not open for applications.", "error"); return; }
+  if (j.closeDate < CONFIG.today) { toast("The application window for this job has closed.", "error"); return; }
+  const u = currentUser();
+  if (api.listApps({ jobId, empId: u.empId }).length) { toast("You have already applied to this job.", "warn"); return; }
+  const checks = eligibilityChecks(j), eligible = checks.every(c => c.ok);
+  modal.open({
+    title: "Apply – " + j.title,
+    body: `${eligibilityHtml(j)}
+      ${eligible ? "" : '<div class="notice notice-warn" style="margin-top:.8rem">You do not meet all eligibility criteria. You may still apply; HR will review eligibility.</div>'}
+      <form id="applyForm" novalidate style="margin-top:1rem">
+        <div class="field"><label class="${j.resumeRequired === "Mandatory" ? "req" : ""}" for="apFile">Resume (PDF or DOCX, max 5 MB)</label>
+          <input id="apFile" type="file" class="input" accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document">
+          <div class="err" id="apFileErr"></div></div>
+        <div class="field" style="margin-top:.8rem"><label for="apNote">Why are you interested? (optional)</label>
+          <textarea id="apNote" class="input" maxlength="1000"></textarea></div>
+        <p class="hint">${j.mgrApproval === "Notify only" ? "Your manager will be notified." : `Manager approval: ${esc(j.mgrApproval.toLowerCase())}.`}
+          Only the recruiter and hiring manager for this role can view your resume.</p>
+        <label class="small" style="display:flex;gap:.4rem;align-items:flex-start"><input type="checkbox" id="apConsent">
+          <span>I confirm the information is accurate and consent to my resume being reviewed for this role.</span></label>
+        <div class="err" id="apConsentErr"></div>
+      </form>`,
+    foot: `<button class="btn" data-close>Cancel</button><button class="btn btn-primary" id="apSubmit">Submit application</button>`,
+    onOpen(root) {
+      $("#apSubmit", root).addEventListener("click", () => {
+        const file = $("#apFile", root).files[0];
+        let ok = true;
+        const fErr = (file || j.resumeRequired === "Mandatory") ? validateResumeFile(file) : "";
+        $("#apFileErr", root).textContent = fErr; $("#apFile", root).setAttribute("aria-invalid", fErr ? "true" : "false");
+        if (fErr) ok = false;
+        const consent = $("#apConsent", root).checked;
+        $("#apConsentErr", root).textContent = consent ? "" : "Please confirm to continue.";
+        if (!consent) ok = false;
+        if (!ok) return;
+        const p = EMPLOYEE_PROFILE;
+        api.createApp({ jobId, name: u.name, empId: u.empId, dept: p.dept, designation: p.designation, grade: p.grade, tenureMonths: p.tenureMonths,
+          relExp: p.relExp, skills: [], education: p.education, certs: [], resumeFile: file ? file.name : "(not provided)", appliedAt: CONFIG.today,
+          mgrApprovalStatus: j.mgrApproval === "Notify only" ? "Not required" : "Pending", assessStatus: "Pending Assessment",
+          decision: null, decisionReason: "", comments: "", override: null, criteria: null, note: $("#apNote", root).value.trim() });
+        api.logActivity(`${u.name} applied to ${j.title}`, "apply");
+        modal.close();
+        toast("Application submitted. Track it under My Applications.", "success");
+        render();
+      });
+    },
+  });
+}
+
+/* =====================================================================
+   SECTION K — JOB POSTING FORM (create / edit, validation, local draft)
+   ===================================================================== */
+const JobForm = {
+  job: null,          // working copy being edited
+  isNew: false,
+
+  blankJob() {
+    const prof = DB.profiles[0];
+    return { id: api.nextJobId(), title: "", department: "", family: "", grade: "", hiringManager: "", recruiter: currentRole() === "recruiter" ? currentUser().name : "",
+      openings: 1, jobType: CONFIG.jobTypes[0], summary: "", responsibilities: "", reqQualifications: "", reqSkills: [], prefSkills: [],
+      minExp: "", prefExp: "", certifications: "", location: "", workMode: "Hybrid", eligibleDepts: [], eligibleGrades: [], minTenure: 12,
+      perfEligibility: CONFIG.performance[0], mgrApproval: CONFIG.mgrApprovalOptions[1], openDate: CONFIG.today, closeDate: "",
+      resumeRequired: "Mandatory", profileId: prof.id, weights: prof.criteria.map(c => ({ ...c })), threshold: 60,
+      status: "Draft", featured: false, history: [], createdAt: CONFIG.today };
+  },
+
+  render(route) {
+    if (currentRole() === "employee") return `<div class="card">${emptyState("Access restricted", "Only recruiters and hiring managers can create or edit job postings.")}</div>`;
+    let restored = null;
+    if (route.sub === "edit") {
+      const src = api.getJob(route.id);
+      if (!src) return `<div class="card">${emptyState("Job not found", "The posting you are trying to edit does not exist.", '<a class="btn btn-primary" href="#/jobs">Back to postings</a>')}</div>`;
+      if (["Closed", "Cancelled"].includes(src.status)) return `<div class="card">${emptyState("Posting is read-only", `This posting is ${src.status.toLowerCase()} and can no longer be edited.`, '<a class="btn" href="#/jobs">Back to postings</a>')}</div>`;
+      JobForm.job = JSON.parse(JSON.stringify(src)); JobForm.isNew = false;
+    } else { JobForm.job = JobForm.blankJob(); JobForm.isNew = true; }
+    // Restore autosaved local draft for this posting, if any
+    const d = safeStorage.get(DRAFT_KEY);
+    if (d && d.key === (JobForm.isNew ? "new" : JobForm.job.id)) { Object.assign(JobForm.job, d.data, { id: JobForm.job.id, status: JobForm.job.status }); restored = d.savedAt; }
+
+    const j = JobForm.job, L = DB.lookups;
+    const sel = (id, label, items, val, req) => `<div class="field"><label for="${id}" class="${req ? "req" : ""}">${label}</label>
+      <select id="${id}" name="${id}" class="input">${optionList(items, val, "Select…")}</select><div class="err" data-err="${id}"></div></div>`;
+    const inp = (id, label, val, req, type, extra) => `<div class="field ${extra && extra.span || ""}"><label for="${id}" class="${req ? "req" : ""}">${label}</label>
+      <input id="${id}" name="${id}" class="input" type="${type || "text"}" value="${esc(val)}" ${extra && extra.attrs || ""}>
+      ${extra && extra.hint ? `<div class="hint">${extra.hint}</div>` : ""}<div class="err" data-err="${id}"></div></div>`;
+    const ta = (id, label, val, req, hint) => `<div class="field span-3"><label for="${id}" class="${req ? "req" : ""}">${label}</label>
+      <textarea id="${id}" name="${id}" class="input" maxlength="2000">${esc(val)}</textarea>${hint ? `<div class="hint">${hint}</div>` : ""}<div class="err" data-err="${id}"></div></div>`;
+    const checks = (name, items, vals) => `<div class="check-group" role="group">${items.map(v => `<label><input type="checkbox" name="${name}" value="${esc(v)}" ${vals.includes(v) ? "checked" : ""}> ${esc(v)}</label>`).join("")}</div>`;
+
+    return `<div class="page-head"><div><h1>${JobForm.isNew ? "New Job Posting" : "Edit Job Posting"}</h1>
+        <p>${JobForm.isNew ? "Complete all mandatory (*) fields before submitting for approval." : `Editing ${esc(j.id)} · current status ${badge(j.status)}`}</p></div>
+        <a class="btn" href="#/jobs">← Back to postings</a></div>
+      ${restored ? `<div class="notice notice-info" id="draftNotice">Restored unsaved changes autosaved locally on ${fmtDate(restored)}. <button class="btn btn-sm" id="discardDraft" type="button">Discard local changes</button></div>` : ""}
+      <div class="notice notice-danger" id="formErrors" hidden tabindex="-1"></div>
+      <form id="jobForm" novalidate>
+      <fieldset><legend>1. Job Details</legend><div class="form-grid">
+        ${inp("id", "Job Posting ID", j.id, false, "text", { attrs: "readonly aria-readonly=\"true\"", hint: "Auto-generated" })}
+        ${inp("title", "Job Title", j.title, true, "text", { span: "span-2", attrs: 'maxlength="120"' })}
+        ${sel("department", "Department / Business Unit", L.departments, j.department, true)}
+        ${sel("family", "Job Family", L.jobFamilies, j.family, true)}
+        ${sel("grade", "Job Grade / Level", L.grades, j.grade, true)}
+        ${sel("hiringManager", "Hiring Manager", L.people, j.hiringManager, true)}
+        ${sel("recruiter", "Recruiter", L.recruiters, j.recruiter, true)}
+        ${inp("openings", "Number of Openings", j.openings, true, "number", { attrs: 'min="1" max="50"' })}
+        ${sel("jobType", "Job Type", CONFIG.jobTypes, j.jobType, true)}
+        ${ta("summary", "Job Summary", j.summary, true, "2–4 sentences describing the purpose of the role.")}
+        ${ta("responsibilities", "Key Responsibilities", j.responsibilities, true, "One responsibility per line.")}
+      </div></fieldset>
+
+      <fieldset><legend>2. Job Requirements</legend><div class="form-grid">
+        ${ta("reqQualifications", "Required Qualifications", j.reqQualifications, true)}
+        ${inp("reqSkills", "Required Skills", (j.reqSkills || []).join(", "), true, "text", { span: "span-3", hint: "Comma-separated, e.g. JavaScript, React, SQL" })}
+        ${inp("prefSkills", "Preferred Skills", (j.prefSkills || []).join(", "), false, "text", { span: "span-3", hint: "Comma-separated" })}
+        ${inp("minExp", "Minimum Relevant Experience (years)", j.minExp, true, "number", { attrs: 'min="0" max="40" step="0.5"' })}
+        ${inp("prefExp", "Preferred Experience (years)", j.prefExp, false, "number", { attrs: 'min="0" max="40" step="0.5"' })}
+        ${inp("certifications", "Certifications", j.certifications, false, "text", { hint: "Write “None required” if not applicable" })}
+        ${sel("location", "Work Location", L.locations, j.location, true)}
+        <div class="field span-2"><span class="lbl req" id="wmLbl">Work Mode</span><div class="check-group" role="radiogroup" aria-labelledby="wmLbl">
+          ${CONFIG.workModes.map(m => `<label><input type="radio" name="workMode" value="${m}" ${j.workMode === m ? "checked" : ""}> ${m}</label>`).join("")}</div>
+          <div class="err" data-err="workMode"></div></div>
+      </div></fieldset>
+
+      <fieldset><legend>3. Internal Employee Eligibility</legend><div class="form-grid">
+        <div class="field span-3"><span class="lbl req">Eligible Departments</span>${checks("eligibleDepts", L.departments, j.eligibleDepts || [])}<div class="err" data-err="eligibleDepts"></div></div>
+        <div class="field span-3"><span class="lbl req">Eligible Job Grades</span>${checks("eligibleGrades", L.grades, j.eligibleGrades || [])}<div class="err" data-err="eligibleGrades"></div></div>
+        ${inp("minTenure", "Minimum Company Tenure (months)", j.minTenure, true, "number", { attrs: 'min="0" max="120"' })}
+        ${sel("perfEligibility", "Performance Eligibility", CONFIG.performance, j.perfEligibility, true)}
+        ${sel("mgrApproval", "Manager Approval Requirement", CONFIG.mgrApprovalOptions, j.mgrApproval, true)}
+      </div></fieldset>
+
+      <fieldset><legend>4. Application Settings</legend><div class="form-grid">
+        ${inp("openDate", "Application Opening Date", j.openDate, true, "date")}
+        ${inp("closeDate", "Application Closing Date", j.closeDate, true, "date", { hint: "Must be after the opening date (minimum 7-day window)." })}
+        ${sel("resumeRequired", "Resume Upload Requirement", ["Mandatory", "Optional"], j.resumeRequired, true)}
+        ${sel("profileId", "Assessment Profile", DB.profiles.map(p => p.id), j.profileId, true)}
+        ${inp("threshold", "Minimum Assessment Review Threshold (0–100)", j.threshold, true, "number", { attrs: 'min="0" max="100"', hint: "Candidates below this are flagged, never auto-rejected." })}
+        <div class="field"><span class="lbl">Featured on dashboard</span><label class="small"><input type="checkbox" id="featured" ${j.featured ? "checked" : ""}> Feature this job</label></div>
+        <div class="field span-3"><span class="lbl req">Assessment Criteria and Weights</span>
+          <div class="hint" id="profileName"></div>
+          <div class="table-wrap"><table><thead><tr><th>Criterion</th><th style="width:140px">Weight (%)</th></tr></thead><tbody id="weightsBody"></tbody>
+            <tfoot><tr><th>Total</th><th id="weightTotal">0%</th></tr></tfoot></table></div>
+          <div class="err" data-err="weights"></div>
+          <div class="hint">Only job-related criteria may be weighted. Personal characteristics (age, gender, religion, etc.) are never scoring inputs.</div></div>
+      </div></fieldset>
+
+      <div class="sticky-actions"><span class="small muted" id="autosaveNote">Changes autosave locally in this browser.</span>
+        <div class="btn-row">
+          <button type="button" class="btn" data-act="draft">${j.status === "Draft" ? "Save as Draft" : "Save Changes"}</button>
+          <button type="button" class="btn" data-act="submit" ${j.status === "Draft" ? "" : "disabled"}>Submit for Approval</button>
+          <button type="button" class="btn btn-primary" data-act="publish" ${["Draft", "Pending Approval"].includes(j.status) ? "" : "disabled"}>Publish Job</button>
+          <button type="button" class="btn btn-warning" data-act="close" ${j.status === "Published" && !JobForm.isNew ? "" : "disabled"}>Close Job</button>
+          <button type="button" class="btn btn-danger" data-act="cancel" ${JobForm.isNew ? "disabled" : ""}>Cancel Job</button>
+        </div></div>
+      </form>`;
+  },
+
+  bind(route, root) {
+    const form = $("#jobForm", root); if (!form) return;
+    JobForm.renderWeights();
+    $("#profileId", root).addEventListener("change", (e) => {
+      const p = api.getProfile(e.target.value);
+      if (p) { JobForm.job.weights = p.criteria.map(c => ({ ...c })); JobForm.renderWeights(); JobForm.autosave(); }
+    });
+    form.addEventListener("input", () => JobForm.autosave());
+    form.addEventListener("change", () => JobForm.autosave());
+    const dd = $("#discardDraft", root);
+    if (dd) dd.addEventListener("click", () => { safeStorage.remove(DRAFT_KEY); toast("Local changes discarded.", "success"); render(); });
+    $$("[data-act]", root).forEach(b => b.addEventListener("click", () => JobForm.action(b.dataset.act)));
+  },
+
+  renderWeights() {
+    const body = $("#weightsBody"); if (!body) return;
+    const p = api.getProfile(JobForm.job.profileId);
+    $("#profileName").textContent = p ? p.name : "";
+    body.innerHTML = JobForm.job.weights.map((c, i) => `<tr><td><label for="w_${i}">${esc(c.name)}</label></td>
+      <td><input id="w_${i}" data-w="${i}" type="number" min="0" max="100" class="input" value="${esc(c.weight)}"></td></tr>`).join("");
+    $$("[data-w]", body).forEach(inp => inp.addEventListener("input", () => {
+      JobForm.job.weights[Number(inp.dataset.w)].weight = inp.value === "" ? "" : Number(inp.value);
+      JobForm.updateWeightTotal();
+    }));
+    JobForm.updateWeightTotal();
+  },
+  updateWeightTotal() {
+    const t = scoring.totalWeight(JobForm.job.weights);
+    const el = $("#weightTotal");
+    el.textContent = t + "%";
+    el.style.color = t === 100 ? "var(--success)" : "var(--danger)";
+    el.title = t === 100 ? "Weights total 100%" : "Weights must total exactly 100%";
+  },
+
+  /** Reads all form fields into the working copy. */
+  collect() {
+    const f = $("#jobForm"), j = JobForm.job;
+    const val = (n) => (f.elements[n] ? f.elements[n].value.trim() : "");
+    const list = (n) => val(n).split(",").map(s => s.trim()).filter(Boolean).filter((s, i, a) => a.findIndex(x => norm(x) === norm(s)) === i);
+    ["title", "department", "family", "grade", "hiringManager", "recruiter", "jobType", "summary", "responsibilities", "reqQualifications",
+      "certifications", "location", "perfEligibility", "mgrApproval", "openDate", "closeDate", "resumeRequired", "profileId"].forEach(k => j[k] = val(k));
+    ["openings", "minExp", "prefExp", "minTenure", "threshold"].forEach(k => j[k] = val(k) === "" ? "" : Number(val(k)));
+    j.reqSkills = list("reqSkills"); j.prefSkills = list("prefSkills");
+    j.workMode = (f.querySelector("input[name=workMode]:checked") || {}).value || "";
+    j.eligibleDepts = $$("input[name=eligibleDepts]:checked", f).map(c => c.value);
+    j.eligibleGrades = $$("input[name=eligibleGrades]:checked", f).map(c => c.value);
+    j.featured = $("#featured").checked;
+    return j;
+  },
+
+  autosave() {
+    if (!$("#jobForm")) return;
+    const data = JobForm.collect();
+    const ok = safeStorage.set(DRAFT_KEY, { key: JobForm.isNew ? "new" : data.id, data, savedAt: nowStamp() });
+    const n = $("#autosaveNote"); if (n) n.textContent = ok ? "Autosaved locally at " + new Date().toLocaleTimeString() : "Local autosave unavailable in this browser.";
+  },
+
+  /**
+   * Validation. full=false → draft rules (title + date order); full=true → all mandatory rules.
+   * Returns [{field, msg}].
+   */
+  validateJob(j, full) {
+    const e = [];
+    const need = (f, label) => { const v = j[f]; if (v === "" || v == null || (Array.isArray(v) && !v.length)) e.push({ field: f, msg: `${label} is required.` }); };
+    need("title", "Job title");
+    if (j.title && j.title.length < 3) e.push({ field: "title", msg: "Job title must be at least 3 characters." });
+    if (j.openDate && j.closeDate) {
+      if (j.closeDate <= j.openDate) e.push({ field: "closeDate", msg: "Closing date must be after the opening date." });
+      else if (daysBetween(j.openDate, j.closeDate) < 7) e.push({ field: "closeDate", msg: "Application window must be at least 7 days." });
+    }
+    if (!full) return e;
+    [["department", "Department"], ["family", "Job family"], ["grade", "Job grade"], ["hiringManager", "Hiring manager"], ["recruiter", "Recruiter"],
+     ["openings", "Number of openings"], ["jobType", "Job type"], ["summary", "Job summary"], ["responsibilities", "Key responsibilities"],
+     ["reqQualifications", "Required qualifications"], ["reqSkills", "Required skills"], ["minExp", "Minimum experience"], ["location", "Work location"],
+     ["workMode", "Work mode"], ["eligibleDepts", "At least one eligible department"], ["eligibleGrades", "At least one eligible grade"],
+     ["minTenure", "Minimum tenure"], ["perfEligibility", "Performance eligibility"], ["mgrApproval", "Manager approval requirement"],
+     ["openDate", "Opening date"], ["closeDate", "Closing date"], ["resumeRequired", "Resume requirement"], ["profileId", "Assessment profile"], ["threshold", "Review threshold"]]
+      .forEach(([f, l]) => need(f, l));
+    if (j.openings !== "" && (j.openings < 1 || j.openings > 50 || !Number.isInteger(Number(j.openings)))) e.push({ field: "openings", msg: "Openings must be a whole number between 1 and 50." });
+    if (j.minExp !== "" && (j.minExp < 0 || j.minExp > 40)) e.push({ field: "minExp", msg: "Minimum experience must be between 0 and 40 years." });
+    if (j.prefExp !== "" && j.minExp !== "" && j.prefExp < j.minExp) e.push({ field: "prefExp", msg: "Preferred experience cannot be less than the minimum." });
+    if (j.threshold !== "" && (j.threshold < 0 || j.threshold > 100)) e.push({ field: "threshold", msg: "Threshold must be between 0 and 100." });
+    if (j.summary && j.summary.length < 30) e.push({ field: "summary", msg: "Job summary should be at least 30 characters." });
+    if (j.closeDate && j.closeDate < CONFIG.today) e.push({ field: "closeDate", msg: "Closing date cannot be in the past." });
+    const t = scoring.totalWeight(j.weights || []);
+    if (t !== 100) e.push({ field: "weights", msg: `Assessment weights must total 100% (currently ${t}%).` });
+    if ((j.weights || []).some(c => c.weight === "" || c.weight < 0 || c.weight > 100)) e.push({ field: "weights", msg: "Each weight must be between 0 and 100." });
+    return e;
+  },
+
+  showErrors(errs) {
+    $$("#jobForm [aria-invalid]").forEach(el => el.removeAttribute("aria-invalid"));
+    $$("#jobForm [data-err]").forEach(el => el.textContent = "");
+    const box = $("#formErrors");
+    if (!errs.length) { box.hidden = true; return; }
+    errs.forEach(er => {
+      const slot = $(`#jobForm [data-err="${er.field}"]`); if (slot && !slot.textContent) slot.textContent = er.msg;
+      const input = $("#jobForm #" + er.field); if (input) input.setAttribute("aria-invalid", "true");
+    });
+    box.innerHTML = `<b>Please fix ${errs.length} issue${errs.length > 1 ? "s" : ""}:</b><ul style="margin:.4rem 0 0">${errs.map(e => `<li>${esc(e.msg)}</li>`).join("")}</ul>`;
+    box.hidden = false; box.focus(); box.scrollIntoView({ behavior: "smooth", block: "start" });
+  },
+
+  action(act) {
+    const j = JobForm.collect();
+    if (act === "close" || act === "cancel") { jobTransition(j.id, act, () => { safeStorage.remove(DRAFT_KEY); go("#/jobs"); }); return; }
+    const full = act !== "draft" || j.status !== "Draft";
+    const errs = JobForm.validateJob(j, full);
+    JobForm.showErrors(errs);
+    if (errs.length) { toast("Please correct the highlighted fields.", "error"); return; }
+    if (act === "publish" && !isManager() && !j.approved) {
+      toast("Publishing requires approval. Use “Submit for Approval”, or switch to the Hiring Manager role to approve and publish.", "error"); return;
+    }
+    const wasNew = JobForm.isNew;
+    j.updatedAt = nowStamp();
+    if (wasNew) j.history = [{ at: nowStamp(), by: currentUser().name, status: "Draft", note: "Created" }];
+    api.saveJob(JSON.parse(JSON.stringify(j)));
+    safeStorage.remove(DRAFT_KEY);
+    if (act === "draft") {
+      api.logActivity(`${j.title} ${wasNew ? "created as draft" : "updated"} by ${currentUser().name}`, "workflow");
+      toast(wasNew ? `Draft ${j.id} saved.` : "Changes saved.", "success");
+      go("#/jobs/edit/" + j.id);
+    } else if (act === "submit") {
+      jobTransition(j.id, "submit", () => go("#/approvals"));
+    } else if (act === "publish") {
+      jobTransition(j.id, "publish", () => go("#/jobs?view=" + j.id));
+    }
+  },
+};
+
+/* =====================================================================
+   SECTION L — MODULE: MY APPLICATIONS
+   ===================================================================== */
+VIEWS.myapps = {
+  render() {
+    const u = currentUser();
+    const mine = api.listApps({ empId: u.empId });
+    const head = `<div class="page-head"><div><h1>My Applications</h1><p>Track internal applications submitted as ${esc(u.name)} (${esc(u.empId)}).</p></div>
+      <a class="btn btn-primary" href="#/jobs">Browse open roles</a></div>`;
+    if (!mine.length) return head + `<div class="card">${emptyState("You haven't applied to any internal roles yet",
+      currentRole() === "employee" ? "Browse open positions and apply to track your applications here." : "Switch to the Employee role to see a sample applicant's applications.",
+      '<a class="btn btn-primary" href="#/jobs">Browse jobs</a>')}</div>`;
+    return head + mine.map(a => {
+      const j = api.getJob(a.jobId) || { title: a.jobId, status: "—" };
+      const st = employeeFacingStatus(a);
+      const steps = [
+        { l: "Applied", done: true },
+        { l: "Manager approval", done: ["Approved", "Not required"].includes(a.mgrApprovalStatus), cur: a.mgrApprovalStatus === "Pending" },
+        { l: "Resume review", done: !!a.decision || a.assessStatus === "Assessed", cur: a.mgrApprovalStatus !== "Pending" && !a.decision },
+        { l: "Outcome", done: !!a.decision, cur: false },
+      ];
+      return `<div class="card"><div class="card-head"><div><h3>${esc(j.title)}</h3>
+          <div class="small muted"><span class="mono">${esc(a.id)}</span> · ${esc(a.jobId)} · Applied ${fmtDate(a.appliedAt)} · Resume: ${esc(a.resumeFile)}</div></div>${badge(st)}</div>
+        <div class="steps">${steps.map(s => `<div class="step ${s.done ? "done" : s.cur ? "current" : ""}">${esc(s.l)}</div>`).join("")}</div>
+        ${a.decision === "Rejected" ? `<p class="small" style="margin-top:.6rem">Thank you for your interest. Your recruiter can share feedback on request.</p>` : ""}
+        <div class="btn-row" style="margin-top:.6rem"><button class="btn btn-sm" data-view-job="${esc(a.jobId)}">View job</button>
+          ${!a.decision ? `<button class="btn btn-sm btn-danger" data-withdraw="${esc(a.id)}">Withdraw application</button>` : ""}</div></div>`;
+    }).join("") + `<p class="hint" style="margin-top:1rem">Internal assessment scores and reviewer comments are not shown to applicants.</p>`;
+  },
+  bind(route, root) {
+    bindJobViewButtons(root);
+    $$("[data-withdraw]", root).forEach(b => b.addEventListener("click", () => {
+      const a = api.getApp(b.dataset.withdraw);
+      confirmDialog({ title: "Withdraw application", message: `Withdraw your application for “${jobTitle(a.jobId)}”? This cannot be undone.`,
+        confirmLabel: "Withdraw", danger: true, requireReason: false, reasonLabel: "Reason (optional)",
+        onConfirm(r) { api.updateApp(a.id, { decision: "Withdrawn", decisionReason: r || "Withdrawn by applicant" });
+          api.logActivity(`${a.name} withdrew application for ${jobTitle(a.jobId)}`, "decision"); toast("Application withdrawn.", "success"); render(); } });
+    }));
+  },
+};
+
+/* =====================================================================
+   SECTION M — MODULE: RESUME ASSESSMENT
+   The reviewer records criterion scores (0–100) with supporting evidence;
+   the weighted overall score is CALCULATED here. Resume text extraction
+   and automated scoring are NOT implemented in this prototype.
+   ===================================================================== */
+const AS = { work: null, file: null, pendingOnly: false };
+
+VIEWS.assessment = {
+  render(route) {
+    const apps = api.listApps().filter(a => a.decision !== "Withdrawn");
+    if (!apps.length) return `<div class="card">${emptyState("No applications to assess", "Applications will appear here once employees apply.")}</div>`;
+    const id = route.params.app && api.getApp(route.params.app) ? route.params.app : (apps.find(a => a.assessStatus === "Pending Assessment") || apps[0]).id;
+    AS.work = JSON.parse(JSON.stringify(api.getApp(id)));
+    AS.file = null;
+    const byJob = {};
+    apps.forEach(a => (byJob[a.jobId] = byJob[a.jobId] || []).push(a));
+    return `<div class="page-head"><div><h1>Resume Assessment</h1><p>Review a candidate's resume against the job's weighted criteria. Every score must cite resume evidence.</p></div></div>
+      <div class="notice notice-info"><b>Prototype scope:</b> the file picker validates PDF/DOCX type and size only. Resume parsing and AI scoring are
+        <b>not implemented</b> — candidate details and criterion scores below are sample data or values you enter. The weighted total, skill matching and threshold checks are calculated live.</div>
+      <div class="card"><div class="toolbar" style="margin:0">
+        <div class="grow field"><label for="asSelect">Candidate application</label>
+          <select id="asSelect" class="input">${Object.entries(byJob).map(([jid, list]) => `<optgroup label="${esc(jobTitle(jid))}">${list.map(a =>
+            `<option value="${esc(a.id)}" ${a.id === id ? "selected" : ""}>${esc(a.name)} — ${esc(a.assessStatus)}${a.decision ? " / " + esc(a.decision) : ""}</option>`).join("")}</optgroup>`).join("")}</select></div>
+        <a class="btn" href="#/evaluation?job=${esc(AS.work.jobId)}" style="align-self:flex-end">Compare candidates →</a></div></div>
+      <div id="asWork" style="margin-top:1rem"></div>`;
+  },
+  bind(route, root) {
+    $("#asSelect", root).addEventListener("change", (e) => go("#/assessment?app=" + encodeURIComponent(e.target.value)));
+    renderAssessmentWork();
+  },
+};
+
+function renderAssessmentWork() {
+  const a = AS.work, job = api.getJob(a.jobId);
+  const host = $("#asWork");
+  if (!job) { host.innerHTML = `<div class="card"><div class="notice notice-danger">The job linked to this application no longer exists.</div></div>`; return; }
+  if (!a.criteria) a.criteria = {};
+  job.weights.forEach(c => { if (!a.criteria[c.key]) a.criteria[c.key] = { score: "", evidence: [] }; });
+  const sm = scoring.skillMatch(a, job);
+  const locked = !!a.decision;
+  const ovs = a._ov !== undefined ? a._ov : a.override;   // keep unsaved override input across re-renders
+
+  host.innerHTML = `
+  <div class="grid g-2-1">
+    <div>
+      <div class="card"><div class="card-head"><h2>Candidate profile</h2>${badge(a.assessStatus)}</div>
+        <div class="grid g-2">
+          <dl class="kv"><dt>Candidate name</dt><dd><b>${esc(a.name)}</b></dd><dt>Employee ID</dt><dd class="mono">${esc(a.empId)}</dd>
+            <dt>Current designation</dt><dd>${esc(a.designation)}</dd><dt>Department / grade</dt><dd>${esc(a.dept)} · ${esc(a.grade)}</dd>
+            <dt>Applied for</dt><dd>${esc(job.title)} <span class="mono small muted">${esc(job.id)}</span></dd>
+            <dt>Resume file</dt><dd>${esc(a.resumeFile)}</dd></dl>
+          <div>
+            <div class="field"><label for="cdExp">Relevant experience (years)</label><input id="cdExp" class="input" type="number" min="0" max="50" step="0.5" value="${esc(a.relExp)}" ${locked ? "disabled" : ""}></div>
+            <div class="field" style="margin-top:.5rem"><label for="cdSkills">Technical skills (comma-separated)</label><input id="cdSkills" class="input" value="${esc((a.skills || []).join(", "))}" ${locked ? "disabled" : ""}></div>
+            <div class="field" style="margin-top:.5rem"><label for="cdEdu">Education</label><input id="cdEdu" class="input" value="${esc(a.education)}" ${locked ? "disabled" : ""}></div>
+            <div class="field" style="margin-top:.5rem"><label for="cdCerts">Certifications (comma-separated)</label><input id="cdCerts" class="input" value="${esc((a.certs || []).join(", "))}" ${locked ? "disabled" : ""}></div>
+            <div class="hint">Entered or confirmed by the reviewer from the resume.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card"><div class="card-head"><h2>Resume file</h2></div>
+        <div class="dropzone" id="dz" tabindex="0" role="button" aria-label="Select a PDF or DOCX resume file">
+          <b>Drop a PDF or DOCX here, or click to choose</b><div class="hint">Max 5 MB · the file stays in your browser and is not uploaded or parsed</div>
+          <input type="file" id="asFile" accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" hidden></div>
+        <div id="fileInfo" class="small" style="margin-top:.6rem" aria-live="polite"></div>
+      </div>
+
+      <div class="card"><div class="card-head"><h2>Criterion-wise score breakdown</h2><span class="small muted">Profile: ${esc((api.getProfile(job.profileId) || {}).name || job.profileId)}</span></div>
+        <div class="crit small muted hide-sm" style="font-weight:600"><span>Criterion</span><span>Weight</span><span>Score (0–100)</span><span>Weighted</span><span></span></div>
+        ${job.weights.map(c => { const e = a.criteria[c.key]; return `
+          <div class="crit" data-crit="${esc(c.key)}">
+            <div><b>${esc(c.name)}</b></div><div>${c.weight}%</div>
+            <div class="crit-bar" style="display:flex;gap:.5rem;align-items:center"><input class="input" type="number" min="0" max="100" data-score="${esc(c.key)}" value="${esc(e.score)}" aria-label="${esc(c.name)} score" ${locked ? "disabled" : ""}>
+              <div class="progress" style="flex:1"><span data-bar="${esc(c.key)}" style="width:${Number(e.score) || 0}%"></span></div></div>
+            <div data-contrib="${esc(c.key)}">${e.score === "" ? "—" : (e.score * c.weight / 100).toFixed(1)}</div>
+            <div><button class="btn btn-sm btn-ghost" data-toggle-ev="${esc(c.key)}" aria-expanded="false">Evidence (${e.evidence.length})</button></div>
+          </div>
+          <div data-ev-panel="${esc(c.key)}" hidden style="padding:.3rem 0 .8rem">
+            ${e.evidence.length ? e.evidence.map((x, i) => `<div class="evidence">${esc(x.text)}<span class="src">Source: ${esc(x.src)}
+              ${locked ? "" : `· <button class="btn btn-ghost btn-sm" style="padding:0" data-del-ev="${esc(c.key)}" data-i="${i}">remove</button>`}</span></div>`).join("")
+              : '<div class="notice notice-warn small" style="margin:.3rem 0">No supporting evidence recorded yet.</div>'}
+            ${locked ? "" : `<div class="grid g-2-1" style="margin-top:.4rem"><input class="input" placeholder="Quote or summarise the resume evidence…" data-ev-text="${esc(c.key)}" maxlength="400">
+              <div style="display:flex;gap:.4rem"><input class="input" placeholder="Resume section" data-ev-src="${esc(c.key)}" maxlength="80"><button class="btn btn-sm" data-add-ev="${esc(c.key)}">Add</button></div></div>`}
+          </div>`; }).join("")}
+        <p class="hint" style="margin-top:.6rem">Overall = Σ (criterion score × weight) ÷ 100. Weights are set on the job posting and total ${scoring.totalWeight(job.weights)}%.</p>
+      </div>
+
+      <div class="card"><div class="card-head"><h2>Supporting resume evidence</h2></div>
+        ${job.weights.some(c => a.criteria[c.key].evidence.length) ? job.weights.map(c => a.criteria[c.key].evidence.map(x =>
+          `<div class="evidence"><b>${esc(c.name)}:</b> ${esc(x.text)}<span class="src">${esc(x.src)}</span></div>`).join("")).join("")
+          : emptyState("No evidence recorded", "Add evidence for each criterion in the breakdown above.")}
+      </div>
+    </div>
+
+    <div>
+      <div class="card" style="text-align:center"><h2>Overall resume match</h2>
+        <div style="display:flex;justify-content:center;margin:.6rem 0"><div class="score-ring" id="ring"><div><span><b id="ringVal">—</b><br><small>out of 100</small></span></div></div></div>
+        <div id="ringBand"></div><div id="ringNote" class="small muted" style="margin-top:.4rem"></div>
+      </div>
+
+      <div class="card"><h3>Matched skills <span class="small muted">(${sm.coverage}% of required)</span></h3>
+        ${sm.matchedReq.length || sm.matchedPref.length ? sm.matchedReq.map(s => `<span class="chip ok">✓ ${esc(s)}</span>`).join("") + sm.matchedPref.map(s => `<span class="chip ok">✓ ${esc(s)} <small>(pref.)</small></span>`).join("")
+          : '<p class="muted small">No listed skills match this job yet.</p>'}
+        <h3 style="margin-top:.8rem">Missing or unverified requirements</h3>
+        ${sm.missing.length ? `<ul class="list small">${sm.missing.map(m => `<li><span class="chip miss">${esc(m.kind)}</span><span>${esc(m.item)}</span></li>`).join("")}</ul>` : '<p class="small" style="color:var(--success)">All listed requirements are evidenced.</p>'}
+        <p class="hint">Keyword comparison of the reviewer-entered skill list against the job's skills.</p>
+      </div>
+
+      <div class="card"><h3><label for="asComments">Recruiter comments</label></h3>
+        <textarea id="asComments" class="input" maxlength="1500" ${locked ? "disabled" : ""}>${esc(a.comments)}</textarea></div>
+
+      <div class="card"><h3>Manual score override</h3>
+        <label class="small"><input type="checkbox" id="ovOn" ${ovs ? "checked" : ""} ${locked ? "disabled" : ""}> Override the calculated score</label>
+        <div id="ovFields" ${ovs ? "" : "hidden"} style="margin-top:.6rem">
+          <div class="field"><label for="ovScore" class="req">Override score (0–100)</label><input id="ovScore" type="number" min="0" max="100" class="input" value="${esc(ovs ? ovs.score : "")}" ${locked ? "disabled" : ""}><div class="err" id="ovScoreErr"></div></div>
+          <div class="field" style="margin-top:.5rem"><label for="ovReason" class="req">Reason for override</label><textarea id="ovReason" class="input" maxlength="500" ${locked ? "disabled" : ""}>${esc(ovs ? ovs.reason : "")}</textarea><div class="err" id="ovReasonErr"></div>
+            <div class="hint">Mandatory. Recorded in the audit trail with your name and time.</div></div>
+          ${a.override && a.override.by ? `<p class="small muted">Last override by ${esc(a.override.by)} on ${fmtDate(a.override.at)}</p>` : ""}
+        </div></div>
+
+      <div class="card"><h3>Not used in scoring</h3><p class="small muted">These personal characteristics are never captured as assessment inputs:</p>
+        ${CONFIG.excludedAttributes.map(x => `<span class="chip">${esc(x)}</span>`).join("")}</div>
+
+      <div class="card"><div id="asErrors" class="notice notice-danger" hidden></div>
+        ${locked ? `<div class="notice notice-info">A decision (<b>${esc(a.decision)}</b>) has been recorded; the assessment is read-only.</div>` : `
+        <div class="btn-row"><button class="btn" id="asSave">Save progress</button><button class="btn btn-primary" id="asComplete">Complete assessment</button></div>`}
+        <p class="hint" style="margin-top:.6rem">Scores support — and never replace — a recruiter's and hiring manager's judgement.</p></div>
+    </div>
+  </div>`;
+  bindAssessmentWork(job);
+  updateRing(job);
+}
+
+function updateRing(job) {
+  const a = AS.work;
+  const calc = scoring.computed(a, job);
+  const ovOn = $("#ovOn") && $("#ovOn").checked;
+  const ovVal = ovOn && $("#ovScore").value !== "" ? Number($("#ovScore").value) : null;
+  const final = ovVal != null && ovVal >= 0 && ovVal <= 100 ? ovVal : calc;
+  const b = scoring.band(final);
+  const ring = $("#ring");
+  ring.style.setProperty("--p", final == null ? 0 : final);
+  ring.style.setProperty("--c", b.color);
+  $("#ringVal").textContent = final == null ? "—" : final;
+  $("#ringBand").innerHTML = `<span class="badge ${b.cls}">${esc(b.label)}</span>`;
+  const notes = [];
+  if (calc == null) notes.push("Enter all criterion scores to calculate.");
+  else notes.push("Calculated: " + calc);
+  if (ovVal != null) notes.push("Override applied");
+  if (final != null && final < Number(job.threshold)) notes.push(`⚠ Below review threshold (${job.threshold}) — review carefully`);
+  $("#ringNote").textContent = notes.join(" · ");
+}
+
+function bindAssessmentWork(job) {
+  const a = AS.work, host = $("#asWork");
+  // Score inputs → live recalculation
+  $$("[data-score]", host).forEach(inp => inp.addEventListener("input", () => {
+    const k = inp.dataset.score;
+    let v = inp.value === "" ? "" : Number(inp.value);
+    const bad = v !== "" && (isNaN(v) || v < 0 || v > 100);
+    inp.setAttribute("aria-invalid", bad ? "true" : "false");
+    a.criteria[k].score = bad ? "" : v;
+    $(`[data-bar="${k}"]`, host).style.width = (bad ? 0 : v || 0) + "%";
+    const w = job.weights.find(c => c.key === k).weight;
+    $(`[data-contrib="${k}"]`, host).textContent = v === "" || bad ? "—" : (v * w / 100).toFixed(1);
+    updateRing(job);
+  }));
+  // Evidence panels
+  $$("[data-toggle-ev]", host).forEach(b => b.addEventListener("click", () => {
+    const p = $(`[data-ev-panel="${b.dataset.toggleEv}"]`, host); p.hidden = !p.hidden; b.setAttribute("aria-expanded", String(!p.hidden));
+  }));
+  $$("[data-add-ev]", host).forEach(b => b.addEventListener("click", () => {
+    const k = b.dataset.addEv;
+    const t = $(`[data-ev-text="${k}"]`, host).value.trim(), s = $(`[data-ev-src="${k}"]`, host).value.trim();
+    if (t.length < 5) { toast("Evidence text must be at least 5 characters.", "error"); return; }
+    collectCandidateFields();
+    a.criteria[k].evidence.push({ text: t, src: s || "Resume" });
+    renderAssessmentWork();
+    const p = $(`[data-ev-panel="${k}"]`); if (p) p.hidden = false;
+  }));
+  $$("[data-del-ev]", host).forEach(b => b.addEventListener("click", () => {
+    collectCandidateFields();
+    a.criteria[b.dataset.delEv].evidence.splice(Number(b.dataset.i), 1); renderAssessmentWork();
+    const p = $(`[data-ev-panel="${b.dataset.delEv}"]`); if (p) p.hidden = false;
+  }));
+  // Candidate fields → recompute skill match on change
+  ["#cdSkills", "#cdExp", "#cdCerts"].forEach(sel => { const el = $(sel, host); if (el) el.addEventListener("change", () => { collectCandidateFields(); renderAssessmentWork(); }); });
+  // Override
+  const ov = $("#ovOn", host);
+  ov.addEventListener("change", () => { $("#ovFields", host).hidden = !ov.checked; updateRing(job); });
+  $("#ovScore", host).addEventListener("input", () => updateRing(job));
+  // File picker (validation only)
+  const dz = $("#dz", host), fi = $("#asFile", host);
+  const handle = (file) => {
+    const err = validateResumeFile(file);
+    if (err) { $("#fileInfo", host).innerHTML = `<span style="color:var(--danger)">✕ ${esc(err)}</span>`; AS.file = null; return; }
+    AS.file = file;
+    $("#fileInfo", host).innerHTML = `✓ <b>${esc(file.name)}</b> (${(file.size / 1024).toFixed(0)} KB) validated. It will be recorded as this candidate's resume when you save.
+      <div class="hint">Content was not read or parsed — enter skills and evidence manually above.</div>`;
+  };
+  if (!a.decision) {
+    dz.addEventListener("click", () => fi.click());
+    dz.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); fi.click(); } });
+    fi.addEventListener("change", () => handle(fi.files[0]));
+    dz.addEventListener("dragover", (e) => { e.preventDefault(); dz.classList.add("drag"); });
+    dz.addEventListener("dragleave", () => dz.classList.remove("drag"));
+    dz.addEventListener("drop", (e) => { e.preventDefault(); dz.classList.remove("drag"); handle(e.dataTransfer.files[0]); });
+  } else dz.setAttribute("aria-disabled", "true");
+  // Save buttons
+  const s = $("#asSave", host), c = $("#asComplete", host);
+  if (s) s.addEventListener("click", () => saveAssessment(job, false));
+  if (c) c.addEventListener("click", () => saveAssessment(job, true));
+}
+
+function collectCandidateFields() {
+  const a = AS.work, split = (v) => v.split(",").map(x => x.trim()).filter(Boolean);
+  if (!$("#cdSkills")) return;
+  a.skills = split($("#cdSkills").value);
+  a.certs = split($("#cdCerts").value);
+  a.education = $("#cdEdu").value.trim();
+  const e = $("#cdExp").value; a.relExp = e === "" ? 0 : Math.max(0, Number(e));
+  a.comments = $("#asComments").value.trim();
+  a._ov = $("#ovOn").checked ? { score: $("#ovScore").value, reason: $("#ovReason").value } : null;
+}
+
+function saveAssessment(job, complete) {
+  collectCandidateFields();
+  const a = AS.work, errs = [];
+  $("#ovScoreErr").textContent = ""; $("#ovReasonErr").textContent = "";
+  // Override validation (mandatory reason)
+  let override = null;
+  if ($("#ovOn").checked) {
+    const sc = $("#ovScore").value, rs = $("#ovReason").value.trim();
+    if (sc === "" || isNaN(Number(sc)) || Number(sc) < 0 || Number(sc) > 100) { errs.push("Override score must be between 0 and 100."); $("#ovScoreErr").textContent = "Enter a score from 0 to 100."; }
+    if (rs.length < 10) { errs.push("A reason (at least 10 characters) is mandatory for a score override."); $("#ovReasonErr").textContent = "Reason is mandatory (min. 10 characters)."; }
+    const prev = api.getApp(a.id).override;
+    const changed = !prev || Number(prev.score) !== Number(sc) || prev.reason !== rs;
+    override = { score: Number(sc), reason: rs, by: changed ? currentUser().name : prev.by, at: changed ? nowStamp() : prev.at };
+  }
+  if (complete) {
+    job.weights.forEach(c => {
+      const e = a.criteria[c.key];
+      if (e.score === "" || e.score == null) errs.push(`Score missing for “${c.name}”.`);
+      if (!e.evidence.length) errs.push(`Add at least one evidence item for “${c.name}”.`);
+    });
+    if (scoring.totalWeight(job.weights) !== 100) errs.push("The job's assessment weights do not total 100%. Fix the job posting first.");
+  }
+  const box = $("#asErrors");
+  if (errs.length) { box.innerHTML = `<b>Cannot save:</b><ul style="margin:.3rem 0 0">${errs.map(e => `<li>${esc(e)}</li>`).join("")}</ul>`; box.hidden = false; toast(errs[0], "error"); return; }
+  box.hidden = true;
+  const hasAnyScore = job.weights.some(c => a.criteria[c.key].score !== "");
+  const patch = { skills: a.skills, certs: a.certs, education: a.education, relExp: a.relExp, comments: a.comments, criteria: a.criteria, override,
+    assessStatus: complete ? "Assessed" : (hasAnyScore ? "Under Review" : a.assessStatus) };
+  if (AS.file) patch.resumeFile = AS.file.name;
+  const before = api.getApp(a.id).override;
+  api.updateApp(a.id, JSON.parse(JSON.stringify(patch)));
+  if (override && (!before || before.score !== override.score)) api.logActivity(`Score override recorded for ${a.name} (${override.score}) by ${currentUser().name}`, "assess");
+  if (complete) api.logActivity(`Resume assessment completed for ${a.name} – ${job.title}`, "assess");
+  toast(complete ? `Assessment completed for ${a.name}.` : "Assessment progress saved.", "success");
+  go("#/assessment?app=" + encodeURIComponent(a.id));
+}
+
+/* =====================================================================
+   SECTION N — MODULE: CANDIDATE EVALUATION
+   ===================================================================== */
+const EV = { status: "", sort: "score", selected: new Set() };
+
+VIEWS.evaluation = {
+  render(route) {
+    const jobsWithApps = api.listJobs().filter(j => api.listApps({ jobId: j.id }).length);
+    if (!jobsWithApps.length) return `<div class="card">${emptyState("No candidates yet", "Candidates appear here once employees apply to a posting.")}</div>`;
+    const jobId = route.params.job && api.getJob(route.params.job) ? route.params.job : jobsWithApps[0].id;
+    const job = api.getJob(jobId);
+    EV.selected = new Set();
+    return `<div class="page-head"><div><h1>Candidate Evaluation</h1><p>Compare candidates, open scorecards and record decisions. Scores are decision support only.</p></div>
+        <button class="btn" id="cmpBtn" disabled>Compare selected (0)</button></div>
+      <div class="card">
+        <div class="toolbar">
+          <div class="field grow"><label for="evJob">Job posting</label><select id="evJob" class="input">${jobsWithApps.map(j =>
+            `<option value="${esc(j.id)}" ${j.id === jobId ? "selected" : ""}>${esc(j.title)} (${esc(j.id)}) — ${api.listApps({ jobId: j.id }).length} candidates</option>`).join("")}</select></div>
+          <div class="field"><label for="evStatus">Status</label><select id="evStatus" class="input">${optionList(["Pending Assessment", "Under Review", "Assessed", "Shortlisted", "On Hold", "Rejected", "Withdrawn"], EV.status, "All")}</select></div>
+          <div class="field"><label for="evSort">Sort by</label><select id="evSort" class="input">
+            <option value="score" ${EV.sort === "score" ? "selected" : ""}>Resume score (high→low)</option>
+            <option value="exp" ${EV.sort === "exp" ? "selected" : ""}>Relevant experience</option>
+            <option value="name" ${EV.sort === "name" ? "selected" : ""}>Name</option></select></div>
+        </div>
+        <p class="small muted">${badge(job.status)} · ${esc(job.department)} · ${esc(job.grade)} · Review threshold ${esc(job.threshold)} · Manager approval: ${esc(job.mgrApproval)}</p>
+        <div id="evTable"></div>
+      </div>`;
+  },
+  bind(route, root) {
+    const job = api.getJob($("#evJob", root).value);
+    $("#evJob", root).addEventListener("change", (e) => go("#/evaluation?job=" + encodeURIComponent(e.target.value)));
+    $("#evStatus", root).addEventListener("change", (e) => { EV.status = e.target.value; drawEvalTable(job); });
+    $("#evSort", root).addEventListener("change", (e) => { EV.sort = e.target.value; drawEvalTable(job); });
+    $("#cmpBtn", root).addEventListener("click", () => openCompare(job));
+    drawEvalTable(job);
+    if (route.params.card) openScorecard(route.params.card);
+  },
+};
+
+function drawEvalTable(job) {
+  let list = api.listApps({ jobId: job.id }).filter(a => !EV.status || appStage(a) === EV.status || a.assessStatus === EV.status);
+  const sc = (a) => { const s = scoring.final(a, job); return s == null ? -1 : s; };
+  list.sort(EV.sort === "name" ? (a, b) => a.name.localeCompare(b.name) : EV.sort === "exp" ? (a, b) => b.relExp - a.relExp : (a, b) => sc(b) - sc(a));
+  const host = $("#evTable");
+  if (!list.length) { host.innerHTML = emptyState("No candidates match this filter", "Change the status filter to see more candidates."); return; }
+  host.innerHTML = `<div class="table-wrap"><table><thead><tr><th><span class="sr-only">Select</span></th><th>Candidate</th><th>Employee ID</th><th>Current dept.</th><th>Rel. exp</th>
+    <th>Resume score</th><th>Assessment</th><th>Decision</th><th>Recruiter comments</th><th>Actions</th></tr></thead><tbody>
+    ${list.map(a => { const s = scoring.final(a, job); const below = s != null && s < job.threshold; const closed = a.decision === "Withdrawn"; return `<tr>
+      <td><input type="checkbox" data-sel="${esc(a.id)}" aria-label="Select ${esc(a.name)} for comparison" ${EV.selected.has(a.id) ? "checked" : ""}></td>
+      <td><b>${esc(a.name)}</b><div class="small muted">${esc(a.designation)}</div></td><td class="mono small">${esc(a.empId)}</td><td>${esc(a.dept)}</td>
+      <td>${esc(a.relExp)} yrs</td><td>${scorePill(a)}${below ? '<div class="small" style="color:var(--warning)">Below threshold</div>' : ""}</td>
+      <td>${badge(a.assessStatus)}</td><td>${a.decision ? badge(a.decision) : '<span class="muted small">Pending</span>'}</td>
+      <td class="small" style="max-width:240px">${esc((a.comments || "—").slice(0, 110))}${(a.comments || "").length > 110 ? "…" : ""}</td>
+      <td><div class="btn-row" style="flex-wrap:nowrap"><button class="btn btn-sm" data-card="${esc(a.id)}">Scorecard</button>
+        ${closed ? "" : `<button class="btn btn-sm btn-success" data-dec="Shortlisted" data-id="${esc(a.id)}" title="Shortlist">Shortlist</button>
+        <button class="btn btn-sm btn-warning" data-dec="On Hold" data-id="${esc(a.id)}" title="Hold">Hold</button>
+        <button class="btn btn-sm btn-danger" data-dec="Rejected" data-id="${esc(a.id)}" title="Reject">Reject</button>`}</div></td></tr>`; }).join("")}
+    </tbody></table></div>`;
+  $$("[data-card]", host).forEach(b => b.addEventListener("click", () => openScorecard(b.dataset.card)));
+  $$("[data-dec]", host).forEach(b => b.addEventListener("click", () => decide(b.dataset.id, b.dataset.dec)));
+  $$("[data-sel]", host).forEach(c => c.addEventListener("change", () => {
+    if (c.checked && EV.selected.size >= 4) { c.checked = false; toast("You can compare up to 4 candidates.", "warn"); return; }
+    c.checked ? EV.selected.add(c.dataset.sel) : EV.selected.delete(c.dataset.sel);
+    const btn = $("#cmpBtn"); btn.textContent = `Compare selected (${EV.selected.size})`; btn.disabled = EV.selected.size < 2;
+  }));
+}
+
+/** Business rules for recording a decision. Returns an error string or "". */
+function decisionBlocker(a, job, decision) {
+  if (a.decision === "Withdrawn") return "The candidate withdrew this application.";
+  if (decision === "Shortlisted") {
+    if (scoring.final(a, job) == null || a.assessStatus !== "Assessed") return "Complete the resume assessment before shortlisting.";
+    if (a.mgrApprovalStatus === "Pending" && job.mgrApproval !== "Notify only") return "Current manager approval is still pending for this candidate.";
+  }
+  return "";
+}
+
+function decide(appId, decision, afterFn) {
+  const a = api.getApp(appId), job = api.getJob(a.jobId);
+  const block = decisionBlocker(a, job, decision);
+  if (block) { toast(block, "error"); return; }
+  const s = scoring.final(a, job);
+  confirmDialog({
+    title: `${decision === "Shortlisted" ? "Shortlist" : decision === "On Hold" ? "Put on hold" : "Reject"} – ${a.name}`,
+    message: `Record “${decision}” for ${a.name} (${job.title}). Resume score: ${s == null ? "not assessed" : s}. This decision is made by you; the score is supporting information only.`,
+    confirmLabel: "Record decision", danger: decision === "Rejected",
+    requireReason: decision !== "Shortlisted", reasonLabel: decision === "Shortlisted" ? "Comment (optional)" : "Reason (required)",
+    onConfirm(reason) {
+      api.updateApp(a.id, { decision, decisionReason: reason, decidedBy: currentUser().name, decidedAt: nowStamp() });
+      api.logActivity(`${a.name} ${decision === "On Hold" ? "put on hold" : decision.toLowerCase()} for ${job.title} by ${currentUser().name}`, "decision");
+      toast(`Decision recorded: ${a.name} — ${decision}.`, "success");
+      if (afterFn) afterFn(); else render();
+    },
+  });
+}
+
+function openScorecard(appId) {
+  const a = api.getApp(appId); if (!a) { toast("Candidate not found.", "error"); return; }
+  const job = api.getJob(a.jobId), calc = scoring.computed(a, job), fin = scoring.final(a, job), b = scoring.band(fin);
+  const sm = scoring.skillMatch(a, job);
+  modal.open({
+    title: `Scorecard – ${a.name}`, size: "wide",
+    body: `<div class="grid g-2-1">
+      <div><dl class="kv"><dt>Employee ID</dt><dd class="mono">${esc(a.empId)}</dd><dt>Designation</dt><dd>${esc(a.designation)}</dd>
+          <dt>Department / grade</dt><dd>${esc(a.dept)} · ${esc(a.grade)}</dd><dt>Relevant experience</dt><dd>${esc(a.relExp)} years</dd>
+          <dt>Education</dt><dd>${esc(a.education)}</dd><dt>Certifications</dt><dd>${esc((a.certs || []).join(", ") || "—")}</dd>
+          <dt>Position</dt><dd>${esc(job.title)}</dd><dt>Manager approval</dt><dd>${badge(a.mgrApprovalStatus)}</dd>
+          <dt>Status</dt><dd>${badge(a.assessStatus)} ${a.decision ? badge(a.decision) : ""}</dd></dl></div>
+      <div style="text-align:center"><div style="display:flex;justify-content:center"><div class="score-ring" style="--p:${fin || 0};--c:${b.color}"><div><span><b>${fin == null ? "—" : fin}</b><br><small>out of 100</small></span></div></div></div>
+        <span class="badge ${b.cls}">${esc(b.label)}</span>
+        ${a.override ? `<p class="small" style="margin-top:.4rem">Calculated ${calc} → overridden to <b>${a.override.score}</b> by ${esc(a.override.by)}<br><i>“${esc(a.override.reason)}”</i></p>` : ""}
+        ${fin != null && fin < job.threshold ? `<div class="notice notice-warn small" style="margin-top:.5rem">Below review threshold (${job.threshold}).</div>` : ""}</div>
+    </div>
+    <h3 style="margin-top:1rem">Criterion breakdown & evidence</h3>
+    ${a.criteria ? `<div class="table-wrap"><table><thead><tr><th>Criterion</th><th>Weight</th><th>Score</th><th>Weighted</th><th>Evidence</th></tr></thead><tbody>
+      ${job.weights.map(c => { const e = a.criteria[c.key] || { score: "", evidence: [] }; return `<tr><td>${esc(c.name)}</td><td>${c.weight}%</td><td>${e.score === "" ? "—" : esc(e.score)}</td>
+        <td>${e.score === "" ? "—" : (e.score * c.weight / 100).toFixed(1)}</td><td class="small">${e.evidence.map(x => `${esc(x.text)} <span class="muted">(${esc(x.src)})</span>`).join("<br>") || '<span class="muted">No evidence</span>'}</td></tr>`; }).join("")}
+      </tbody></table></div>` : `<div class="notice notice-warn">Resume not yet assessed. <a href="#/assessment?app=${esc(a.id)}">Open assessment</a></div>`}
+    <div class="grid g-2" style="margin-top:1rem"><div><h3>Matched skills</h3>${sm.matchedReq.concat(sm.matchedPref).map(s => `<span class="chip ok">${esc(s)}</span>`).join("") || '<span class="muted small">None</span>'}</div>
+      <div><h3>Missing / unverified</h3>${sm.missing.map(m => `<div class="small">• ${esc(m.item)}</div>`).join("") || '<span class="small" style="color:var(--success)">None</span>'}</div></div>
+    <h3 style="margin-top:1rem">Recruiter comments</h3><p class="small">${esc(a.comments || "—")}</p>
+    ${a.decision ? `<p class="small muted">Current decision: ${badge(a.decision)} ${a.decisionReason ? "— " + esc(a.decisionReason) : ""} ${a.decidedBy ? `(by ${esc(a.decidedBy)})` : ""}</p>` : ""}
+    ${a.decision === "Withdrawn" ? "" : `<fieldset style="margin-top:1rem"><legend>Record decision</legend>
+      <div class="check-group" role="radiogroup" aria-label="Decision">${["Shortlisted", "On Hold", "Rejected"].map(d => `<label><input type="radio" name="scDec" value="${d}" ${a.decision === d ? "checked" : ""}> ${d}</label>`).join("")}</div>
+      <div class="field" style="margin-top:.6rem"><label for="scReason">Decision rationale</label><textarea id="scReason" class="input" maxlength="500">${esc(a.decision ? a.decisionReason : "")}</textarea>
+      <div class="err" id="scErr"></div></div></fieldset>`}`,
+    foot: `<button class="btn" data-close>Close</button><a class="btn" href="#/assessment?app=${esc(a.id)}">Open assessment</a>
+      ${a.decision === "Withdrawn" ? "" : '<button class="btn btn-primary" id="scSave">Record decision</button>'}`,
+    onOpen(root) {
+      const btn = $("#scSave", root); if (!btn) return;
+      btn.addEventListener("click", () => {
+        const d = (root.querySelector("input[name=scDec]:checked") || {}).value;
+        const r = $("#scReason", root).value.trim();
+        if (!d) { $("#scErr", root).textContent = "Select a decision."; return; }
+        if (d !== "Shortlisted" && r.length < 5) { $("#scErr", root).textContent = "A rationale (min. 5 characters) is required for Hold or Reject."; $("#scReason", root).setAttribute("aria-invalid", "true"); return; }
+        const block = decisionBlocker(a, job, d); if (block) { $("#scErr", root).textContent = block; return; }
+        api.updateApp(a.id, { decision: d, decisionReason: r, decidedBy: currentUser().name, decidedAt: nowStamp() });
+        api.logActivity(`${a.name} ${d === "On Hold" ? "put on hold" : d.toLowerCase()} for ${job.title} by ${currentUser().name}`, "decision");
+        toast(`Decision recorded: ${a.name} — ${d}.`, "success");
+        modal.close(); render();
+      });
+    },
+  });
+}
+
+function openCompare(job) {
+  const list = [...EV.selected].map(api.getApp).filter(Boolean);
+  if (list.length < 2) { toast("Select at least two candidates to compare.", "warn"); return; }
+  const row = (label, fn) => `<tr><th style="text-transform:none;letter-spacing:0">${esc(label)}</th>${list.map(a => `<td>${fn(a)}</td>`).join("")}</tr>`;
+  const best = Math.max(...list.map(a => scoring.final(a, job) ?? -1));
+  modal.open({
+    title: `Compare candidates – ${job.title}`, size: "wide",
+    body: `<div class="table-wrap"><table><thead><tr><th>Attribute</th>${list.map(a => `<th style="text-transform:none">${esc(a.name)}</th>`).join("")}</tr></thead><tbody>
+      ${row("Resume score", a => { const s = scoring.final(a, job); return scorePill(a) + (s === best && s >= 0 ? ' <span class="small">★ highest</span>' : ""); })}
+      ${row("Current designation", a => esc(a.designation))}${row("Department / grade", a => esc(a.dept + " · " + a.grade))}
+      ${row("Relevant experience", a => esc(a.relExp) + " yrs")}
+      ${job.weights.map(c => row(`${c.name} (${c.weight}%)`, a => a.criteria && a.criteria[c.key] && a.criteria[c.key].score !== "" ? esc(a.criteria[c.key].score) : "—")).join("")}
+      ${row("Required-skill coverage", a => scoring.skillMatch(a, job).coverage + "%")}
+      ${row("Missing / unverified", a => scoring.skillMatch(a, job).missing.length)}
+      ${row("Assessment", a => badge(a.assessStatus))}${row("Decision", a => a.decision ? badge(a.decision) : "—")}
+      </tbody></table></div><p class="hint" style="margin-top:.6rem">Use the comparison alongside interviews and manager input — not as a ranking that decides outcomes.</p>`,
+  });
+}
+
+/* =====================================================================
+   SECTION O — MODULE: APPROVALS & WORKFLOW
+   ===================================================================== */
+let approvalsTab = "jobs";
+VIEWS.approvals = {
+  render() {
+    const pendJobs = api.listJobs().filter(j => j.status === "Pending Approval");
+    const pendApps = api.listApps().filter(a => a.mgrApprovalStatus === "Pending" && a.decision !== "Withdrawn");
+    const canAct = isManager();
+    const tabs = [["jobs", `Job posting approvals (${pendJobs.length})`], ["apps", `Manager approvals (${pendApps.length})`], ["pipeline", "Workflow pipeline"], ["audit", "Audit trail"]];
+    let body = "";
+    if (approvalsTab === "jobs") {
+      body = pendJobs.length ? `<div class="table-wrap"><table><thead><tr><th>Job</th><th>Department</th><th>Grade</th><th>Recruiter</th><th>Opens / closes</th><th>Weights</th><th>Actions</th></tr></thead><tbody>
+        ${pendJobs.map(j => `<tr><td><b>${esc(j.title)}</b><div class="mono small muted">${esc(j.id)}</div></td><td>${esc(j.department)}</td><td>${esc(j.grade)}</td><td>${esc(j.recruiter)}</td>
+          <td>${fmtDate(j.openDate)} – ${fmtDate(j.closeDate)}</td><td>${scoring.totalWeight(j.weights) === 100 ? '<span class="badge b-success">100%</span>' : `<span class="badge b-danger">${scoring.totalWeight(j.weights)}%</span>`}</td>
+          <td><div class="btn-row" style="flex-wrap:nowrap"><button class="btn btn-sm" data-view-job="${esc(j.id)}">Review</button>
+            <button class="btn btn-sm btn-success" data-approve-job="${esc(j.id)}" ${canAct ? "" : "disabled"}>Approve &amp; publish</button>
+            <button class="btn btn-sm btn-danger" data-return-job="${esc(j.id)}" ${canAct ? "" : "disabled"}>Return to draft</button></div></td></tr>`).join("")}</tbody></table></div>`
+        : emptyState("No postings awaiting approval", "Postings submitted for approval will appear here.");
+    } else if (approvalsTab === "apps") {
+      body = pendApps.length ? `<div class="table-wrap"><table><thead><tr><th>Employee</th><th>Current role</th><th>Applied for</th><th>Applied</th><th>Actions</th></tr></thead><tbody>
+        ${pendApps.map(a => `<tr><td><b>${esc(a.name)}</b><div class="mono small muted">${esc(a.empId)}</div></td><td>${esc(a.designation)} · ${esc(a.dept)}</td>
+          <td>${esc(jobTitle(a.jobId))}</td><td>${fmtDate(a.appliedAt)}</td>
+          <td><div class="btn-row" style="flex-wrap:nowrap"><button class="btn btn-sm btn-success" data-approve-app="${esc(a.id)}" ${canAct ? "" : "disabled"}>Approve</button>
+            <button class="btn btn-sm btn-danger" data-decline-app="${esc(a.id)}" ${canAct ? "" : "disabled"}>Decline</button></div></td></tr>`).join("")}</tbody></table></div>`
+        : emptyState("No manager approvals pending", "Applications needing current-manager approval will appear here.");
+    } else if (approvalsTab === "pipeline") {
+      const stages = ["Pending Assessment", "Under Review", "Assessed", "Shortlisted", "On Hold", "Rejected"];
+      const jobs = api.listJobs().filter(j => ["Published", "Closed"].includes(j.status));
+      body = `<div class="table-wrap"><table><thead><tr><th>Job</th><th>Status</th>${stages.map(s => `<th>${esc(s)}</th>`).join("")}</tr></thead><tbody>
+        ${jobs.map(j => { const apps = api.listApps({ jobId: j.id }).filter(a => a.decision !== "Withdrawn");
+          return `<tr><td><a href="#/evaluation?job=${esc(j.id)}">${esc(j.title)}</a></td><td>${badge(j.status)}</td>${stages.map(s => `<td>${apps.filter(a => appStage(a) === s).length || '<span class="muted">0</span>'}</td>`).join("")}</tr>`; }).join("")}
+        </tbody></table></div><div style="margin-top:1rem"><h3>Posting lifecycle</h3>${workflowSteps("Pending Approval")}
+        <p class="hint">Draft → Submit for Approval → Approved &amp; Published → Closed. A posting can be cancelled at any stage with a mandatory reason.</p></div>`;
+    } else {
+      const events = [];
+      api.listJobs().forEach(j => (j.history || []).forEach(h => events.push({ at: h.at, text: `${j.title}: ${h.status}${h.note ? " — " + h.note : ""}`, by: h.by })));
+      DB.activities.forEach(a => events.push({ at: a.at, text: a.text, by: "" }));
+      events.sort((x, y) => (y.at > x.at ? 1 : -1));
+      body = events.length ? `<ul class="list">${events.slice(0, 40).map(e => `<li><span class="dot"></span><div><div>${esc(e.text)}</div><div class="small muted">${fmtDate(e.at)}${e.by ? " · " + esc(e.by) : ""}</div></div></li>`).join("")}</ul>`
+        : emptyState("No audit events yet", "Workflow actions will be logged here.");
+    }
+    return `<div class="page-head"><div><h1>Approvals &amp; Workflow</h1><p>Approve postings and applications, and monitor the hiring pipeline.</p></div></div>
+      ${canAct ? "" : '<div class="notice notice-info">You are viewing as <b>Recruiter</b>. Approval actions require the <b>Hiring Manager</b> role (switch roles in the header to try them). This enforces separation of duties.</div>'}
+      <div class="card"><div class="tabs" role="tablist">${tabs.map(([k, l]) => `<button role="tab" aria-selected="${approvalsTab === k}" class="${approvalsTab === k ? "active" : ""}" data-tab="${k}">${esc(l)}</button>`).join("")}</div>${body}</div>`;
+  },
+  bind(route, root) {
+    $$("[data-tab]", root).forEach(b => b.addEventListener("click", () => { approvalsTab = b.dataset.tab; render(); }));
+    bindJobViewButtons(root);
+    $$("[data-approve-job]", root).forEach(b => b.addEventListener("click", () => {
+      const j = api.getJob(b.dataset.approveJob);
+      const errs = JobForm.validateJob(j, true);
+      if (errs.length) { toast("Cannot approve: " + errs[0].msg, "error"); return; }
+      confirmDialog({ title: "Approve & publish", message: `Approve “${j.title}” and publish it to all eligible employees?`, confirmLabel: "Approve & publish",
+        requireReason: false, reasonLabel: "Approval note (optional)",
+        onConfirm(r) { j.approved = true; api.setJobStatus(j.id, "Published", r || "Approved"); api.logActivity(`${j.title} approved and published by ${currentUser().name}`, "workflow"); toast("Posting approved and published.", "success"); render(); } });
+    }));
+    $$("[data-return-job]", root).forEach(b => b.addEventListener("click", () => {
+      const j = api.getJob(b.dataset.returnJob);
+      confirmDialog({ title: "Return to draft", message: `Return “${j.title}” to the recruiter for changes?`, confirmLabel: "Return to draft", danger: true,
+        requireReason: true, reasonLabel: "Feedback for the recruiter",
+        onConfirm(r) { api.setJobStatus(j.id, "Draft", "Returned: " + r); api.logActivity(`${j.title} returned to draft by ${currentUser().name}`, "workflow"); toast("Posting returned to draft.", "success"); render(); } });
+    }));
+    $$("[data-approve-app]", root).forEach(b => b.addEventListener("click", () => {
+      const a = api.getApp(b.dataset.approveApp);
+      api.updateApp(a.id, { mgrApprovalStatus: "Approved" }); api.logActivity(`Manager approval granted for ${a.name} (${jobTitle(a.jobId)})`, "workflow");
+      toast(`Approved ${a.name}'s application.`, "success"); render();
+    }));
+    $$("[data-decline-app]", root).forEach(b => b.addEventListener("click", () => {
+      const a = api.getApp(b.dataset.declineApp);
+      confirmDialog({ title: "Decline manager approval", message: `Decline approval for ${a.name}'s application to ${jobTitle(a.jobId)}?`, confirmLabel: "Decline", danger: true,
+        requireReason: true, reasonLabel: "Reason (shared with HR)",
+        onConfirm(r) { api.updateApp(a.id, { mgrApprovalStatus: "Declined", decision: "Rejected", decisionReason: "Manager approval declined: " + r });
+          api.logActivity(`Manager approval declined for ${a.name}`, "workflow"); toast("Approval declined.", "success"); render(); } });
+    }));
+  },
+};
+
+/* =====================================================================
+   SECTION P — MODULE: REPORTS & ANALYTICS
+   ===================================================================== */
+VIEWS.reports = {
+  render() {
+    const jobs = api.listJobs(), apps = api.listApps().filter(a => a.decision !== "Withdrawn");
+    const scored = apps.map(a => scoring.final(a, api.getJob(a.jobId))).filter(s => s != null);
+    const buckets = [["0–49", 0, 49.99], ["50–64", 50, 64.99], ["65–79", 65, 79.99], ["80–100", 80, 100]].map(([l, lo, hi]) => ({ l, n: scored.filter(s => s >= lo && s <= hi).length }));
+    const maxB = Math.max(1, ...buckets.map(b => b.n));
+    const perJob = jobs.map(j => ({ l: j.title, n: api.listApps({ jobId: j.id }).length })).filter(x => x.n).sort((a, b) => b.n - a.n);
+    const maxJ = Math.max(1, ...perJob.map(x => x.n));
+    const funnel = [["Applied", apps.length], ["Assessed", apps.filter(a => a.assessStatus === "Assessed").length], ["Shortlisted", apps.filter(a => a.decision === "Shortlisted").length]];
+    const byDept = {}; apps.forEach(a => byDept[a.dept] = (byDept[a.dept] || 0) + 1);
+    const deptRows = Object.entries(byDept).sort((a, b) => b[1] - a[1]); const maxD = Math.max(1, ...deptRows.map(d => d[1]));
+    const byStatus = CONFIG.jobStatuses.map(s => [s, jobs.filter(j => j.status === s).length]);
+    const avg = scored.length ? (scored.reduce((s, x) => s + x, 0) / scored.length).toFixed(1) : "—";
+    const shortlistRate = apps.length ? Math.round(funnel[2][1] / apps.length * 100) + "%" : "—";
+    let ok = true;   // reused by the responsible-assessment checklist
+    const bars = (rows, max, color) => `<div class="bar-chart">${rows.map(([l, n]) => `<div class="bar-row"><span title="${esc(l)}" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(l)}</span>
+      <div class="track"><div class="fill" style="width:${n / max * 100}%;${color ? "background:" + color : ""}"></div></div><b>${n}</b></div>`).join("")}</div>`;
+    return `<div class="page-head"><div><h1>Reports &amp; Analytics</h1><p>Internal mobility and assessment metrics (sample data).</p></div>
+        <div class="btn-row"><button class="btn" id="csvBtn">Export applications (CSV)</button><button class="btn" onclick="window.print()">Print</button></div></div>
+      <div class="grid g-4">${statCard("Average resume score", avg, scored.length + " assessed", "M3 3v18h18M7 15l4-4 3 3 6-6", "primary")}
+        ${statCard("Shortlist rate", shortlistRate, "Shortlisted ÷ active applications", "M9 11l3 3 8-8", "success")}
+        ${statCard("Manual overrides", apps.filter(a => a.override).length, "All with recorded reasons", "M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z", "warning")}
+        ${statCard("Departments represented", deptRows.length, "Applicant source departments", "M3 21h18M5 21V7l7-4 7 4v14", "info")}</div>
+      <div class="grid g-2" style="margin-top:1rem">
+        <div class="card"><h2>Resume score distribution</h2>
+          <div class="vbars" role="img" aria-label="Score distribution: ${buckets.map(b => b.l + " " + b.n).join(", ")}">${buckets.map((b, i) => `<div class="col"><b>${b.n}</b><div class="b" style="height:${b.n / maxB * 85}%;background:${["var(--danger)", "var(--warning)", "var(--primary)", "var(--success)"][i]}"></div></div>`).join("")}</div>
+          <div class="vbars-labels">${buckets.map(b => `<span>${b.l}</span>`).join("")}</div></div>
+        <div class="card"><h2>Hiring funnel</h2>${bars(funnel, Math.max(1, funnel[0][1]))}</div>
+        <div class="card"><h2>Applications by job</h2>${perJob.length ? bars(perJob.map(x => [x.l, x.n]), maxJ) : emptyState("No applications", "")}</div>
+        <div class="card"><h2>Applicants by source department</h2>${deptRows.length ? bars(deptRows, maxD, "var(--info)") : emptyState("No applications", "")}</div>
+        <div class="card"><h2>Job postings by status</h2>${bars(byStatus, Math.max(1, ...byStatus.map(x => x[1])), "var(--primary)")}</div>
+        <div class="card"><h2>Responsible-assessment checks</h2><ul class="list small">
+          <li>${(ok = apps.filter(a => a.criteria).every(a => Object.values(a.criteria).every(c => c.score === "" || c.evidence.length))) ? "✅" : "⚠️"} <span>${ok ? "Every recorded criterion score has supporting evidence." : "Some scores are missing evidence — review assessments."}</span></li>
+          <li>${(ok = jobs.every(j => scoring.totalWeight(j.weights) === 100)) ? "✅" : "⚠️"} <span>${ok ? "All job assessment weights total 100%." : "One or more jobs have weights not totalling 100%."}</span></li>
+          <li>${(ok = apps.filter(a => a.override).every(a => a.override.reason)) ? "✅" : "⚠️"} <span>${ok ? "All score overrides include a documented reason." : "Overrides without reasons detected."}</span></li>
+          <li>✅ <span>No sensitive personal characteristics are captured as scoring inputs.</span></li></ul></div>
+      </div>`;
+  },
+  bind(route, root) {
+    $("#csvBtn", root).addEventListener("click", () => {
+      // CSV excludes free-text comments/evidence to minimise data exposure.
+      const rows = [["Application ID", "Job ID", "Job Title", "Candidate", "Employee ID", "Department", "Relevant Exp", "Resume Score", "Override", "Assessment Status", "Decision"]];
+      api.listApps().forEach(a => { const j = api.getJob(a.jobId); const s = scoring.final(a, j);
+        rows.push([a.id, a.jobId, j ? j.title : "", a.name, a.empId, a.dept, a.relExp, s == null ? "" : s, a.override ? "Yes" : "No", a.assessStatus, a.decision || ""]); });
+      // Neutralise spreadsheet formula injection (cells starting with = + - @)
+      const cell = (v) => { let s = String(v); if (/^[=+\-@]/.test(s)) s = "'" + s; return '"' + s.replace(/"/g, '""') + '"'; };
+      const blob = new Blob([rows.map(r => r.map(cell).join(",")).join("\r\n")], { type: "text/csv;charset=utf-8" });
+      const url = URL.createObjectURL(blob), link = document.createElement("a");
+      link.href = url; link.download = `talenthub-applications-${CONFIG.today}.csv`; document.body.appendChild(link); link.click(); link.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      toast("CSV export generated.", "success");
+    });
+  },
+};
+
+/* =====================================================================
+   SECTION Q — MODULE: ADMINISTRATION & CONFIGURATION
+   ===================================================================== */
+let adminTab = "profiles";
+VIEWS.admin = {
+  render() {
+    const tabs = [["profiles", "Assessment profiles"], ["lookups", "Master data"], ["access", "Roles & access"], ["policy", "Responsible assessment"], ["data", "Prototype data"]];
+    let body = "";
+    if (adminTab === "profiles") {
+      body = DB.profiles.map(p => `<div class="card"><div class="card-head"><h3>${esc(p.name)} <span class="mono small muted">${esc(p.id)}</span></h3>
+          <span class="small">Used by ${api.listJobs().filter(j => j.profileId === p.id).length} job(s)</span></div>
+        <div class="table-wrap"><table><thead><tr><th>Criterion</th><th style="width:150px">Default weight (%)</th></tr></thead><tbody>
+          ${p.criteria.map((c, i) => `<tr><td><input class="input" data-pname="${esc(p.id)}" data-i="${i}" value="${esc(c.name)}" aria-label="Criterion name" maxlength="60"></td>
+            <td><input class="input" type="number" min="0" max="100" data-pw="${esc(p.id)}" data-i="${i}" value="${esc(c.weight)}" aria-label="${esc(c.name)} weight"></td></tr>`).join("")}
+          </tbody><tfoot><tr><th>Total</th><th data-ptotal="${esc(p.id)}">${scoring.totalWeight(p.criteria)}%</th></tr></tfoot></table></div>
+        <div class="btn-row" style="margin-top:.6rem"><button class="btn btn-primary btn-sm" data-psave="${esc(p.id)}">Save profile</button>
+          <span class="hint">Changes apply to new postings; existing postings keep their own weights.</span></div></div>`).join("");
+    } else if (adminTab === "lookups") {
+      const L = DB.lookups;
+      body = `<div class="grid g-2">${[["departments", "Departments / Business units"], ["locations", "Work locations"], ["jobFamilies", "Job families"], ["grades", "Job grades"]].map(([k, l]) => `
+        <div class="card"><h3>${esc(l)}</h3><div>${L[k].map((v, i) => `<span class="chip">${esc(v)} <button class="btn btn-ghost btn-sm" style="padding:0 .2rem" data-del-lk="${k}" data-i="${i}" aria-label="Remove ${esc(v)}">✕</button></span>`).join("")}</div>
+          <div style="display:flex;gap:.4rem;margin-top:.6rem"><input class="input" data-new-lk="${k}" placeholder="Add new…" maxlength="60" aria-label="New ${esc(l)} value"><button class="btn btn-sm" data-add-lk="${k}">Add</button></div></div>`).join("")}</div>`;
+    } else if (adminTab === "access") {
+      body = `<div class="notice notice-warn">Prototype: role checks run in the browser for demonstration. Production must enforce authorization on the server (SSO + RBAC, record-level access to resumes).</div>
+        <div class="table-wrap"><table><thead><tr><th>Module</th><th>Recruiter</th><th>Hiring Manager</th><th>Employee</th></tr></thead><tbody>
+        ${MODULES.map(m => `<tr><td>${esc(m.label)}</td>${["recruiter", "manager", "employee"].map(r => `<td>${m.roles.includes(r) ? '<span class="badge b-success">Allowed</span>' : '<span class="badge b-danger">Restricted</span>'}</td>`).join("")}</tr>`).join("")}
+        <tr><td>Approve postings / manager approvals</td><td><span class="badge b-danger">Restricted</span></td><td><span class="badge b-success">Allowed</span></td><td><span class="badge b-danger">Restricted</span></td></tr>
+        <tr><td>View candidate scores &amp; comments</td><td><span class="badge b-success">Allowed</span></td><td><span class="badge b-success">Allowed</span></td><td><span class="badge b-danger">Restricted</span></td></tr>
+        </tbody></table></div>`;
+    } else if (adminTab === "policy") {
+      body = `<div class="grid g-2"><div class="card"><h3>Excluded from scoring</h3><p class="small muted">These attributes are never collected as assessment inputs and must not appear in criteria.</p>
+          ${CONFIG.excludedAttributes.map(x => `<span class="chip">${esc(x)}</span>`).join("")}</div>
+        <div class="card"><h3>Assessment principles</h3><ul class="small">
+          <li>Scores are decision-support information; a person records every decision.</li>
+          <li>Each criterion score must cite resume evidence before an assessment can be completed.</li>
+          <li>Manual overrides require a written reason and are logged with user and time.</li>
+          <li>Below-threshold candidates are flagged for careful review, never auto-rejected.</li>
+          <li>Resume content is treated as untrusted input: all text is escaped before display; files are type/size validated.</li>
+          <li>Applicants never see internal scores or reviewer comments.</li></ul></div></div>`;
+    } else {
+      body = `<div class="card"><h3>Prototype data</h3><p class="small">All data lives in this browser's localStorage. Records: ${DB.jobs.length} jobs, ${DB.apps.length} applications, ${DB.activities.length} activity entries.</p>
+        <div class="btn-row"><button class="btn" id="exportJson">Export data (JSON)</button><button class="btn btn-danger" id="resetData">Reset to sample data</button></div>
+        <p class="hint" style="margin-top:.6rem">Version ${esc(CONFIG.appVersion)}</p></div>`;
+    }
+    return `<div class="page-head"><div><h1>Administration &amp; Configuration</h1><p>Manage assessment profiles, master data and policies.</p></div></div>
+      <div class="tabs" role="tablist">${tabs.map(([k, l]) => `<button role="tab" aria-selected="${adminTab === k}" class="${adminTab === k ? "active" : ""}" data-tab="${k}">${esc(l)}</button>`).join("")}</div>${body}`;
+  },
+  bind(route, root) {
+    $$("[data-tab]", root).forEach(b => b.addEventListener("click", () => { adminTab = b.dataset.tab; render(); }));
+    // Profiles
+    $$("[data-pw]", root).forEach(inp => inp.addEventListener("input", () => {
+      const pid = inp.dataset.pw, t = $$(`[data-pw="${pid}"]`, root).reduce((s, x) => s + (Number(x.value) || 0), 0);
+      const el = $(`[data-ptotal="${pid}"]`, root); el.textContent = t + "%"; el.style.color = t === 100 ? "var(--success)" : "var(--danger)";
+    }));
+    $$("[data-psave]", root).forEach(b => b.addEventListener("click", () => {
+      const pid = b.dataset.psave, p = api.getProfile(pid);
+      const ws = $$(`[data-pw="${pid}"]`, root).map(x => x.value === "" ? NaN : Number(x.value));
+      const names = $$(`[data-pname="${pid}"]`, root).map(x => x.value.trim());
+      if (ws.some(w => isNaN(w) || w < 0 || w > 100)) { toast("Each weight must be a number between 0 and 100.", "error"); return; }
+      if (names.some(n => n.length < 3)) { toast("Criterion names must be at least 3 characters.", "error"); return; }
+      const banned = /\b(age|gender|religio|ethnic|race|marital|nationality|disabilit|photo|caste)/i;
+      if (names.some(n => banned.test(n))) { toast("Criteria cannot reference sensitive personal characteristics.", "error"); return; }
+      const total = ws.reduce((s, w) => s + w, 0);
+      if (total !== 100) { toast(`Weights must total 100% (currently ${total}%).`, "error"); return; }
+      p.criteria.forEach((c, i) => { c.weight = ws[i]; c.name = names[i]; });
+      persist(); api.logActivity(`Assessment profile ${p.name} updated by ${currentUser().name}`, "workflow");
+      toast("Assessment profile saved.", "success"); render();
+    }));
+    // Lookups
+    $$("[data-add-lk]", root).forEach(b => b.addEventListener("click", () => {
+      const k = b.dataset.addLk, inp = $(`[data-new-lk="${k}"]`, root), v = inp.value.trim();
+      if (v.length < 2) { toast("Enter a value of at least 2 characters.", "error"); return; }
+      if (DB.lookups[k].some(x => norm(x) === norm(v))) { toast("That value already exists.", "warn"); return; }
+      DB.lookups[k].push(v); persist(); toast(`Added “${v}”.`, "success"); render();
+    }));
+    $$("[data-del-lk]", root).forEach(b => b.addEventListener("click", () => {
+      const k = b.dataset.delLk, v = DB.lookups[k][Number(b.dataset.i)];
+      const field = { departments: "department", locations: "location", jobFamilies: "family", grades: "grade" }[k];
+      if (api.listJobs().some(j => j[field] === v)) { toast(`“${v}” is used by existing postings and cannot be removed.`, "error"); return; }
+      DB.lookups[k].splice(Number(b.dataset.i), 1); persist(); toast(`Removed “${v}”.`, "success"); render();
+    }));
+    // Data
+    const ex = $("#exportJson", root);
+    if (ex) ex.addEventListener("click", () => {
+      const blob = new Blob([JSON.stringify(DB, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob), link = document.createElement("a");
+      link.href = url; link.download = "talenthub-data.json"; document.body.appendChild(link); link.click(); link.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000); toast("Data exported.", "success");
+    });
+    const rs = $("#resetData", root);
+    if (rs) rs.addEventListener("click", () => confirmDialog({ title: "Reset sample data", message: "Replace all local data with the original sample data? Your changes will be lost.",
+      confirmLabel: "Reset", danger: true, onConfirm() { api.reset(); toast("Sample data restored.", "success"); render(); } }));
+  },
+};
+
+/* =====================================================================
+   SECTION R — INITIALISATION & GLOBAL EVENT WIRING
+   ===================================================================== */
+function init() {
+  applyTheme();
+  $("#nav").addEventListener("click", (e) => { const b = e.target.closest("[data-nav]"); if (b) go("#/" + b.dataset.nav); });
+  $("#menuBtn").addEventListener("click", () => {
+    const open = !$("#sidebar").classList.contains("open");
+    $("#sidebar").classList.toggle("open", open); $("#scrim").classList.toggle("open", open);
+    $("#menuBtn").setAttribute("aria-expanded", String(open));
+  });
+  $("#scrim").addEventListener("click", closeSidebar);
+  $("#themeBtn").addEventListener("click", () => {
+    prefs.theme = effectiveTheme() === "dark" ? "light" : "dark"; savePrefs(); applyTheme();
+    toast(`Switched to ${prefs.theme} theme.`);
+  });
+  $("#roleSelect").addEventListener("change", (e) => {
+    prefs.role = e.target.value; savePrefs();
+    toast(`Now viewing as ${currentUser().name} (${currentUser().role}).`, "success");
+    render();
+  });
+  // Modal: close button, backdrop click, Escape, focus trap
+  $("#modalBackdrop").addEventListener("click", (e) => { if (e.target.id === "modalBackdrop" || e.target.closest("[data-close]")) modal.close(); });
+  document.addEventListener("keydown", (e) => {
+    if (!modal.isOpen()) { if (e.key === "Escape") closeSidebar(); return; }
+    if (e.key === "Escape") { modal.close(); return; }
+    if (e.key === "Tab") {
+      const f = $$("#modal a[href],#modal button:not([disabled]),#modal input:not([disabled]),#modal select,#modal textarea").filter(el => el.offsetParent !== null);
+      if (!f.length) return;
+      const first = f[0], last = f[f.length - 1];
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    }
+  });
+  window.addEventListener("hashchange", render);
+  window.addEventListener("error", (e) => toast("Unexpected error: " + (e.message || "unknown"), "error"));
+  render();
+}
+document.addEventListener("DOMContentLoaded", init);
+</script>
+</body>
+</html>
