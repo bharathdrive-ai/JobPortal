@@ -4,7 +4,7 @@
     {
       "code": "JS",
       "name": "Job Seeker",
-      "description": "Employees who browse internal jobs, apply and track applications.",
+      "description": "Employees who browse jobs, apply and track applications.",
       "selfRegister": true,
       "needsApproval": false
     },
