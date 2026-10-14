@@ -1,0 +1,840 @@
+{
+  "source": "data/job-postings.xlsx",
+  "version": "43ea00075ec6",
+  "count": 9,
+  "jobs": [
+    {
+      "id": "JOB-2026-1001",
+      "title": "Senior Full Stack Engineer",
+      "department": "Engineering",
+      "family": "Software Engineering",
+      "grade": "G7",
+      "hiringManager": "Arjun Mehta",
+      "recruiter": "Priya Raman",
+      "openings": 2,
+      "jobType": "Full-time Permanent",
+      "summary": "Build and scale customer-facing payment and onboarding experiences used by 4M+ users.",
+      "responsibilities": "Design and deliver features across React front end and Node.js services.\nOwn API design and data modelling for onboarding flows.\nMentor two to three engineers and lead code reviews.\nPartner with Product and QA on release planning.",
+      "reqQualifications": "Bachelor's degree in Computer Science or equivalent practical experience.",
+      "reqSkills": [
+        "JavaScript",
+        "React",
+        "Node.js",
+        "REST APIs",
+        "SQL"
+      ],
+      "prefSkills": [
+        "TypeScript",
+        "AWS",
+        "Docker",
+        "CI/CD"
+      ],
+      "minExp": 5,
+      "prefExp": 7,
+      "certifications": "AWS Certified Developer – Associate (preferred)",
+      "location": "Bengaluru",
+      "workMode": "Hybrid",
+      "eligibleDepts": [
+        "Engineering",
+        "IT Infrastructure",
+        "Product Management",
+        "Data & Analytics",
+        "Customer Success"
+      ],
+      "eligibleGrades": [
+        "G5",
+        "G6",
+        "G7"
+      ],
+      "minTenure": 12,
+      "perfEligibility": "Meets Expectations or above",
+      "mgrApproval": "Required before shortlisting",
+      "openDate": "2026-10-01",
+      "closeDate": "2026-10-31",
+      "resumeRequired": "Mandatory",
+      "profileId": "AP-TECH",
+      "threshold": 60,
+      "featured": true,
+      "status": "Published",
+      "createdAt": "2026-09-26",
+      "weights": [
+        {
+          "key": "reqSkills",
+          "name": "Required Skills Match",
+          "weight": 35
+        },
+        {
+          "key": "experience",
+          "name": "Relevant Experience",
+          "weight": 25
+        },
+        {
+          "key": "quals",
+          "name": "Qualifications & Certifications",
+          "weight": 15
+        },
+        {
+          "key": "prefSkills",
+          "name": "Preferred Skills",
+          "weight": 15
+        },
+        {
+          "key": "resp",
+          "name": "Responsibilities Alignment",
+          "weight": 10
+        }
+      ],
+      "history": [],
+      "approved": true,
+      "source": "spreadsheet"
+    },
+    {
+      "id": "JOB-2026-1002",
+      "title": "Data Scientist – Customer Analytics",
+      "department": "Data & Analytics",
+      "family": "Data Science & Analytics",
+      "grade": "G6",
+      "hiringManager": "Kavita Iyer",
+      "recruiter": "Priya Raman",
+      "openings": 1,
+      "jobType": "Full-time Permanent",
+      "summary": "Develop churn and propensity models that guide retention campaigns across retail banking products.",
+      "responsibilities": "Build, validate and monitor predictive models.\nDesign and analyse A/B experiments with Marketing.\nPresent insights to business stakeholders.",
+      "reqQualifications": "Bachelor's or Master's in Statistics, Mathematics, Computer Science or related field.",
+      "reqSkills": [
+        "Python",
+        "SQL",
+        "Machine Learning",
+        "Statistics"
+      ],
+      "prefSkills": [
+        "PySpark",
+        "Tableau",
+        "A/B Testing"
+      ],
+      "minExp": 3,
+      "prefExp": 5,
+      "certifications": "None required",
+      "location": "Hyderabad",
+      "workMode": "Hybrid",
+      "eligibleDepts": [
+        "Data & Analytics",
+        "Finance",
+        "Engineering",
+        "Marketing"
+      ],
+      "eligibleGrades": [
+        "G4",
+        "G5",
+        "G6"
+      ],
+      "minTenure": 12,
+      "perfEligibility": "Meets Expectations or above",
+      "mgrApproval": "Required before shortlisting",
+      "openDate": "2026-10-05",
+      "closeDate": "2026-11-05",
+      "resumeRequired": "Mandatory",
+      "profileId": "AP-TECH",
+      "threshold": 60,
+      "featured": true,
+      "status": "Published",
+      "createdAt": "2026-10-01",
+      "weights": [
+        {
+          "key": "reqSkills",
+          "name": "Required Skills Match",
+          "weight": 35
+        },
+        {
+          "key": "experience",
+          "name": "Relevant Experience",
+          "weight": 25
+        },
+        {
+          "key": "quals",
+          "name": "Qualifications & Certifications",
+          "weight": 15
+        },
+        {
+          "key": "prefSkills",
+          "name": "Preferred Skills",
+          "weight": 15
+        },
+        {
+          "key": "resp",
+          "name": "Responsibilities Alignment",
+          "weight": 10
+        }
+      ],
+      "history": [],
+      "approved": true,
+      "source": "spreadsheet"
+    },
+    {
+      "id": "JOB-2026-1003",
+      "title": "Engineering Manager – Platform Services",
+      "department": "Engineering",
+      "family": "Software Engineering",
+      "grade": "G8",
+      "hiringManager": "Rahul Desai",
+      "recruiter": "Neha Joshi",
+      "openings": 1,
+      "jobType": "Full-time Permanent",
+      "summary": "Lead a team of 9 engineers responsible for shared platform services, observability and developer tooling.",
+      "responsibilities": "Hire, coach and grow engineers.\nOwn platform roadmap and delivery commitments.\nDrive reliability targets (SLOs) and incident reviews.\nManage cross-team dependencies.",
+      "reqQualifications": "Bachelor's degree in Engineering or equivalent; 2+ years managing engineers.",
+      "reqSkills": [
+        "People Management",
+        "Agile Delivery",
+        "Microservices",
+        "Stakeholder Management"
+      ],
+      "prefSkills": [
+        "Kubernetes",
+        "SRE Practices"
+      ],
+      "minExp": 8,
+      "prefExp": 10,
+      "certifications": "None required",
+      "location": "Pune",
+      "workMode": "On-site",
+      "eligibleDepts": [
+        "Engineering",
+        "IT Infrastructure"
+      ],
+      "eligibleGrades": [
+        "G7",
+        "G8"
+      ],
+      "minTenure": 24,
+      "perfEligibility": "Exceeds Expectations or above",
+      "mgrApproval": "Required before shortlisting",
+      "openDate": "2026-10-03",
+      "closeDate": "2026-10-28",
+      "resumeRequired": "Mandatory",
+      "profileId": "AP-MGMT",
+      "threshold": 65,
+      "featured": true,
+      "status": "Published",
+      "createdAt": "2026-09-29",
+      "weights": [
+        {
+          "key": "leadership",
+          "name": "People Leadership Experience",
+          "weight": 30
+        },
+        {
+          "key": "domain",
+          "name": "Domain / Technical Depth",
+          "weight": 25
+        },
+        {
+          "key": "stakeholder",
+          "name": "Stakeholder Management",
+          "weight": 20
+        },
+        {
+          "key": "reqSkills",
+          "name": "Required Skills Match",
+          "weight": 15
+        },
+        {
+          "key": "quals",
+          "name": "Qualifications & Certifications",
+          "weight": 10
+        }
+      ],
+      "history": [],
+      "approved": true,
+      "source": "spreadsheet"
+    },
+    {
+      "id": "JOB-2026-1004",
+      "title": "Cloud Infrastructure Specialist",
+      "department": "IT Infrastructure",
+      "family": "Infrastructure & Cloud",
+      "grade": "G6",
+      "hiringManager": "Sunita Rao",
+      "recruiter": "Thomas George",
+      "openings": 2,
+      "jobType": "Full-time Permanent",
+      "summary": "Operate and automate the company's hybrid cloud estate across AWS and on-premise data centres.",
+      "responsibilities": "Automate provisioning with Terraform.\nManage Kubernetes clusters and CI/CD pipelines.\nSupport migration of legacy workloads to AWS.",
+      "reqQualifications": "Diploma or degree in IT/Engineering.",
+      "reqSkills": [
+        "AWS",
+        "Terraform",
+        "Linux",
+        "Kubernetes"
+      ],
+      "prefSkills": [
+        "Python",
+        "Ansible",
+        "CI/CD"
+      ],
+      "minExp": 3,
+      "prefExp": 5,
+      "certifications": "AWS Solutions Architect – Associate (required within 6 months)",
+      "location": "Chennai",
+      "workMode": "Remote",
+      "eligibleDepts": [
+        "IT Infrastructure",
+        "Engineering",
+        "Customer Success"
+      ],
+      "eligibleGrades": [
+        "G4",
+        "G5",
+        "G6"
+      ],
+      "minTenure": 12,
+      "perfEligibility": "Meets Expectations or above",
+      "mgrApproval": "Required before application",
+      "openDate": "2026-10-08",
+      "closeDate": "2026-11-10",
+      "resumeRequired": "Mandatory",
+      "profileId": "AP-TECH",
+      "threshold": 55,
+      "featured": true,
+      "status": "Published",
+      "createdAt": "2026-10-06",
+      "weights": [
+        {
+          "key": "reqSkills",
+          "name": "Required Skills Match",
+          "weight": 35
+        },
+        {
+          "key": "experience",
+          "name": "Relevant Experience",
+          "weight": 25
+        },
+        {
+          "key": "quals",
+          "name": "Qualifications & Certifications",
+          "weight": 15
+        },
+        {
+          "key": "prefSkills",
+          "name": "Preferred Skills",
+          "weight": 15
+        },
+        {
+          "key": "resp",
+          "name": "Responsibilities Alignment",
+          "weight": 10
+        }
+      ],
+      "history": [],
+      "approved": true,
+      "source": "spreadsheet"
+    },
+    {
+      "id": "JOB-2026-1005",
+      "title": "Financial Planning Analyst",
+      "department": "Finance",
+      "family": "Finance & Accounting",
+      "grade": "G5",
+      "hiringManager": "Thomas George",
+      "recruiter": "Neha Joshi",
+      "openings": 1,
+      "jobType": "Full-time Permanent",
+      "summary": "Support annual budgeting, monthly forecasting and variance analysis for the Retail business unit.",
+      "responsibilities": "Prepare monthly forecast packs.\nBuild driver-based financial models.\nPartner with business heads on variance commentary.",
+      "reqQualifications": "CA, CMA, MBA (Finance) or equivalent.",
+      "reqSkills": [
+        "Financial Modelling",
+        "Excel",
+        "Budgeting",
+        "Variance Analysis"
+      ],
+      "prefSkills": [
+        "Power BI",
+        "SAP"
+      ],
+      "minExp": 2,
+      "prefExp": 4,
+      "certifications": "CA / CMA (preferred)",
+      "location": "Bengaluru",
+      "workMode": "On-site",
+      "eligibleDepts": [
+        "Finance",
+        "Operations",
+        "Data & Analytics"
+      ],
+      "eligibleGrades": [
+        "G4",
+        "G5"
+      ],
+      "minTenure": 12,
+      "perfEligibility": "Meets Expectations or above",
+      "mgrApproval": "Required before shortlisting",
+      "openDate": "2026-10-02",
+      "closeDate": "2026-10-25",
+      "resumeRequired": "Mandatory",
+      "profileId": "AP-GEN",
+      "threshold": 55,
+      "featured": false,
+      "status": "Published",
+      "createdAt": "2026-09-30",
+      "weights": [
+        {
+          "key": "reqSkills",
+          "name": "Required Skills Match",
+          "weight": 30
+        },
+        {
+          "key": "experience",
+          "name": "Relevant Experience",
+          "weight": 30
+        },
+        {
+          "key": "quals",
+          "name": "Qualifications & Certifications",
+          "weight": 20
+        },
+        {
+          "key": "prefSkills",
+          "name": "Preferred Skills",
+          "weight": 20
+        }
+      ],
+      "history": [],
+      "approved": true,
+      "source": "spreadsheet"
+    },
+    {
+      "id": "JOB-2026-1006",
+      "title": "HR Business Partner – Technology",
+      "department": "Human Resources",
+      "family": "Human Resources",
+      "grade": "G7",
+      "hiringManager": "Arjun Mehta",
+      "recruiter": "Priya Raman",
+      "openings": 1,
+      "jobType": "Full-time Permanent",
+      "summary": "Act as strategic HR partner to Technology leadership for a population of ~1,200 employees.",
+      "responsibilities": "Advise leaders on org design and workforce planning.\nLead performance and talent review cycles.\nHandle employee relations cases.",
+      "reqQualifications": "Postgraduate degree in HR or related field.",
+      "reqSkills": [
+        "Talent Management",
+        "Employee Relations",
+        "Workforce Planning"
+      ],
+      "prefSkills": [
+        "HR Analytics",
+        "Change Management"
+      ],
+      "minExp": 6,
+      "prefExp": 8,
+      "certifications": "SHRM-CP or equivalent (preferred)",
+      "location": "Mumbai",
+      "workMode": "Hybrid",
+      "eligibleDepts": [
+        "Human Resources"
+      ],
+      "eligibleGrades": [
+        "G6",
+        "G7"
+      ],
+      "minTenure": 12,
+      "perfEligibility": "Meets Expectations or above",
+      "mgrApproval": "Required before shortlisting",
+      "openDate": "2026-10-20",
+      "closeDate": "2026-11-20",
+      "resumeRequired": "Mandatory",
+      "profileId": "AP-GEN",
+      "threshold": 60,
+      "featured": false,
+      "status": "Pending Approval",
+      "createdAt": "2026-10-12",
+      "weights": [
+        {
+          "key": "reqSkills",
+          "name": "Required Skills Match",
+          "weight": 30
+        },
+        {
+          "key": "experience",
+          "name": "Relevant Experience",
+          "weight": 30
+        },
+        {
+          "key": "quals",
+          "name": "Qualifications & Certifications",
+          "weight": 20
+        },
+        {
+          "key": "prefSkills",
+          "name": "Preferred Skills",
+          "weight": 20
+        }
+      ],
+      "history": [],
+      "approved": false,
+      "source": "spreadsheet"
+    },
+    {
+      "id": "JOB-2026-1007",
+      "title": "Product Marketing Manager",
+      "department": "Marketing",
+      "family": "Marketing & Communications",
+      "grade": "G7",
+      "hiringManager": "Kavita Iyer",
+      "recruiter": "Thomas George",
+      "openings": 1,
+      "jobType": "Full-time Permanent",
+      "summary": "Own go-to-market positioning for the SME lending product line.",
+      "responsibilities": "Define messaging and positioning.\nPlan product launches with Sales and Product.",
+      "reqQualifications": "MBA (Marketing) preferred.",
+      "reqSkills": [
+        "Product Marketing",
+        "Go-to-Market",
+        "Market Research"
+      ],
+      "prefSkills": [
+        "B2B Marketing"
+      ],
+      "minExp": 5,
+      "prefExp": 7,
+      "certifications": "",
+      "location": "Gurugram",
+      "workMode": "Hybrid",
+      "eligibleDepts": [
+        "Marketing",
+        "Product Management"
+      ],
+      "eligibleGrades": [
+        "G6",
+        "G7"
+      ],
+      "minTenure": 12,
+      "perfEligibility": "Meets Expectations or above",
+      "mgrApproval": "Required before shortlisting",
+      "openDate": "2026-11-01",
+      "closeDate": "2026-11-30",
+      "resumeRequired": "Mandatory",
+      "profileId": "AP-GEN",
+      "threshold": 60,
+      "featured": false,
+      "status": "Draft",
+      "createdAt": "2026-10-13",
+      "weights": [
+        {
+          "key": "reqSkills",
+          "name": "Required Skills Match",
+          "weight": 30
+        },
+        {
+          "key": "experience",
+          "name": "Relevant Experience",
+          "weight": 30
+        },
+        {
+          "key": "quals",
+          "name": "Qualifications & Certifications",
+          "weight": 20
+        },
+        {
+          "key": "prefSkills",
+          "name": "Preferred Skills",
+          "weight": 20
+        }
+      ],
+      "history": [],
+      "approved": false,
+      "source": "spreadsheet"
+    },
+    {
+      "id": "JOB-2026-0994",
+      "title": "QA Automation Lead",
+      "department": "Engineering",
+      "family": "Software Engineering",
+      "grade": "G7",
+      "hiringManager": "Rahul Desai",
+      "recruiter": "Priya Raman",
+      "openings": 1,
+      "jobType": "Full-time Permanent",
+      "summary": "Lead test automation strategy for mobile banking apps.",
+      "responsibilities": "Own automation frameworks.\nLead a team of 4 QA engineers.",
+      "reqQualifications": "Bachelor's degree in Engineering.",
+      "reqSkills": [
+        "Selenium",
+        "Appium",
+        "Java",
+        "Test Strategy"
+      ],
+      "prefSkills": [
+        "CI/CD"
+      ],
+      "minExp": 6,
+      "prefExp": 8,
+      "certifications": "ISTQB (preferred)",
+      "location": "Pune",
+      "workMode": "Hybrid",
+      "eligibleDepts": [
+        "Engineering"
+      ],
+      "eligibleGrades": [
+        "G6",
+        "G7"
+      ],
+      "minTenure": 12,
+      "perfEligibility": "Meets Expectations or above",
+      "mgrApproval": "Required before shortlisting",
+      "openDate": "2026-08-15",
+      "closeDate": "2026-09-15",
+      "resumeRequired": "Mandatory",
+      "profileId": "AP-TECH",
+      "threshold": 60,
+      "featured": false,
+      "status": "Closed",
+      "createdAt": "2026-08-10",
+      "weights": [
+        {
+          "key": "reqSkills",
+          "name": "Required Skills Match",
+          "weight": 35
+        },
+        {
+          "key": "experience",
+          "name": "Relevant Experience",
+          "weight": 25
+        },
+        {
+          "key": "quals",
+          "name": "Qualifications & Certifications",
+          "weight": 15
+        },
+        {
+          "key": "prefSkills",
+          "name": "Preferred Skills",
+          "weight": 15
+        },
+        {
+          "key": "resp",
+          "name": "Responsibilities Alignment",
+          "weight": 10
+        }
+      ],
+      "history": [],
+      "approved": true,
+      "source": "spreadsheet"
+    },
+    {
+      "id": "JOB-2026-0990",
+      "title": "Procurement Specialist",
+      "department": "Operations",
+      "family": "Operations",
+      "grade": "G5",
+      "hiringManager": "Sunita Rao",
+      "recruiter": "Neha Joshi",
+      "openings": 1,
+      "jobType": "Full-time Permanent",
+      "summary": "Manage vendor sourcing for facilities and IT hardware.",
+      "responsibilities": "Run RFP processes.",
+      "reqQualifications": "Bachelor's degree.",
+      "reqSkills": [
+        "Vendor Management",
+        "Negotiation"
+      ],
+      "prefSkills": [
+        "SAP Ariba"
+      ],
+      "minExp": 3,
+      "prefExp": 5,
+      "certifications": "",
+      "location": "Chennai",
+      "workMode": "On-site",
+      "eligibleDepts": [
+        "Operations",
+        "Finance"
+      ],
+      "eligibleGrades": [
+        "G4",
+        "G5"
+      ],
+      "minTenure": 12,
+      "perfEligibility": "Meets Expectations or above",
+      "mgrApproval": "Required before shortlisting",
+      "openDate": "2026-08-01",
+      "closeDate": "2026-08-31",
+      "resumeRequired": "Mandatory",
+      "profileId": "AP-GEN",
+      "threshold": 55,
+      "featured": false,
+      "status": "Cancelled",
+      "createdAt": "2026-07-28",
+      "weights": [
+        {
+          "key": "reqSkills",
+          "name": "Required Skills Match",
+          "weight": 30
+        },
+        {
+          "key": "experience",
+          "name": "Relevant Experience",
+          "weight": 30
+        },
+        {
+          "key": "quals",
+          "name": "Qualifications & Certifications",
+          "weight": 20
+        },
+        {
+          "key": "prefSkills",
+          "name": "Preferred Skills",
+          "weight": 20
+        }
+      ],
+      "history": [],
+      "approved": false,
+      "source": "spreadsheet"
+    }
+  ],
+  "profiles": [
+    {
+      "id": "AP-TECH",
+      "name": "Technical Role – Standard",
+      "criteria": [
+        {
+          "key": "reqSkills",
+          "name": "Required Skills Match",
+          "weight": 35
+        },
+        {
+          "key": "experience",
+          "name": "Relevant Experience",
+          "weight": 25
+        },
+        {
+          "key": "quals",
+          "name": "Qualifications & Certifications",
+          "weight": 15
+        },
+        {
+          "key": "prefSkills",
+          "name": "Preferred Skills",
+          "weight": 15
+        },
+        {
+          "key": "resp",
+          "name": "Responsibilities Alignment",
+          "weight": 10
+        }
+      ]
+    },
+    {
+      "id": "AP-MGMT",
+      "name": "People Leadership",
+      "criteria": [
+        {
+          "key": "leadership",
+          "name": "People Leadership Experience",
+          "weight": 30
+        },
+        {
+          "key": "domain",
+          "name": "Domain / Technical Depth",
+          "weight": 25
+        },
+        {
+          "key": "stakeholder",
+          "name": "Stakeholder Management",
+          "weight": 20
+        },
+        {
+          "key": "reqSkills",
+          "name": "Required Skills Match",
+          "weight": 15
+        },
+        {
+          "key": "quals",
+          "name": "Qualifications & Certifications",
+          "weight": 10
+        }
+      ]
+    },
+    {
+      "id": "AP-GEN",
+      "name": "General Professional",
+      "criteria": [
+        {
+          "key": "reqSkills",
+          "name": "Required Skills Match",
+          "weight": 30
+        },
+        {
+          "key": "experience",
+          "name": "Relevant Experience",
+          "weight": 30
+        },
+        {
+          "key": "quals",
+          "name": "Qualifications & Certifications",
+          "weight": 20
+        },
+        {
+          "key": "prefSkills",
+          "name": "Preferred Skills",
+          "weight": 20
+        }
+      ]
+    }
+  ],
+  "lookups": {
+    "departments": [
+      "Engineering",
+      "Data & Analytics",
+      "IT Infrastructure",
+      "Finance",
+      "Human Resources",
+      "Marketing",
+      "Product Management",
+      "Operations",
+      "Customer Success",
+      "Legal & Compliance"
+    ],
+    "jobFamilies": [
+      "Software Engineering",
+      "Data Science & Analytics",
+      "Infrastructure & Cloud",
+      "Finance & Accounting",
+      "Human Resources",
+      "Marketing & Communications",
+      "Product Management",
+      "Operations"
+    ],
+    "grades": [
+      "G4",
+      "G5",
+      "G6",
+      "G7",
+      "G8",
+      "G9"
+    ],
+    "locations": [
+      "Bengaluru",
+      "Hyderabad",
+      "Pune",
+      "Chennai",
+      "Mumbai",
+      "Gurugram",
+      "London"
+    ],
+    "people": [
+      "Arjun Mehta",
+      "Kavita Iyer",
+      "Rahul Desai",
+      "Sunita Rao",
+      "Priya Raman",
+      "Neha Joshi",
+      "Thomas George"
+    ],
+    "recruiters": [
+      "Priya Raman",
+      "Neha Joshi",
+      "Thomas George"
+    ]
+  }
+}

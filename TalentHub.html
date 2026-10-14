@@ -711,6 +711,98 @@ const api = {
 };
 
 /* =====================================================================
+   SECTION C2 — JOB POSTINGS FEED
+   Source of truth: data/job-postings.xlsx. The build (`npm run build`)
+   validates it and writes data/job-postings.json, which is loaded here.
+   When the feed's version changes, its postings replace this browser's
+   copies with the same Job ID. Postings created only in this browser are
+   kept and marked "Local only". If the feed can't be loaded (e.g. the page
+   was opened as a local file), the postings saved in this browser are used.
+   ===================================================================== */
+const FEED_URL = "data/job-postings.json";
+const FEED = { state: "loading", count: 0, version: "", message: "", skipped: 0 };
+
+/** Feed content is treated as untrusted: coerce every field to the expected type. */
+function cleanFeedJob(raw) {
+  if (!raw || typeof raw !== "object") return null;
+  const str = (v, max) => String(v == null ? "" : v).slice(0, max || 4000);
+  const num = (v) => (v === "" || v == null || !Number.isFinite(Number(v)) ? "" : Number(v));
+  const list = (v) => (Array.isArray(v) ? v.map(x => str(x, 120)).filter(Boolean).slice(0, 60) : []);
+  const job = { source: "spreadsheet", history: [] };
+  ["id", "title", "department", "family", "grade", "hiringManager", "recruiter", "jobType", "summary", "responsibilities",
+   "reqQualifications", "certifications", "location", "workMode", "perfEligibility", "mgrApproval", "openDate", "closeDate",
+   "resumeRequired", "profileId", "status", "createdAt"].forEach(k => job[k] = str(raw[k]).trim());
+  ["openings", "minExp", "prefExp", "minTenure", "threshold"].forEach(k => job[k] = num(raw[k]));
+  ["reqSkills", "prefSkills", "eligibleDepts", "eligibleGrades"].forEach(k => job[k] = list(raw[k]));
+  job.featured = raw.featured === true;
+  job.approved = raw.approved === true;
+  job.weights = (Array.isArray(raw.weights) ? raw.weights : []).map(c => ({ key: str(c && c.key, 40), name: str(c && c.name, 80), weight: Number(c && c.weight) || 0 }));
+  if (!/^JOB-\d{4}-\d{3,6}$/.test(job.id) || !job.title || !CONFIG.jobStatuses.includes(job.status)) return null;
+  return job;
+}
+
+/** Loads the feed and merges it into DB. Returns true when postings changed. */
+async function syncJobFeed(opts) {
+  const force = !!(opts && opts.force);
+  let feed;
+  try {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 6000);
+    const res = await fetch(FEED_URL, { cache: "no-store", signal: ctrl.signal });
+    clearTimeout(timer);
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    feed = await res.json();
+  } catch (e) {
+    FEED.state = "unavailable";
+    FEED.message = location.protocol === "file:" ? "The page was opened as a local file, so it can't read the spreadsheet feed."
+      : `The spreadsheet feed couldn't be loaded (${e.name === "AbortError" ? "timed out" : e.message}).`;
+    return false;
+  }
+  if (!feed || !Array.isArray(feed.jobs)) { FEED.state = "error"; FEED.message = "The spreadsheet feed isn't in the expected format."; return false; }
+  const jobs = feed.jobs.map(cleanFeedJob).filter(Boolean);
+  Object.assign(FEED, { state: "loaded", count: jobs.length, version: String(feed.version || "").slice(0, 40), skipped: feed.jobs.length - jobs.length, message: "" });
+  if (!force && DB.feedVersion === FEED.version) return false;
+
+  const hadFeed = !!DB.feedVersion;
+  const feedIds = new Set(jobs.map(j => j.id));
+  const prevIds = new Set(DB.feedJobIds || []);
+  const existing = new Map(DB.jobs.map(j => [j.id, j]));
+  // Keep browser-only postings; drop postings removed from the spreadsheet unless applications refer to them.
+  const kept = DB.jobs.filter(j => !feedIds.has(j.id) &&
+    !((prevIds.has(j.id) || j.source === "spreadsheet") && !api.listApps({ jobId: j.id }).length));
+  DB.jobs = kept.concat(jobs.map(j => Object.assign(j, { history: (existing.get(j.id) || {}).history || [] })));
+  if (Array.isArray(feed.profiles) && feed.profiles.length) {
+    DB.profiles = feed.profiles.map(p => ({ id: String(p.id), name: String(p.name || p.id),
+      criteria: (p.criteria || []).map(c => ({ key: String(c.key), name: String(c.name), weight: Number(c.weight) || 0 })) }));
+  }
+  if (feed.lookups && typeof feed.lookups === "object") {
+    Object.keys(DB.lookups).forEach(k => {
+      const extra = Array.isArray(feed.lookups[k]) ? feed.lookups[k].map(String) : [];
+      extra.forEach(v => { if (v && !DB.lookups[k].includes(v)) DB.lookups[k].push(v); });
+    });
+  }
+  DB.feedVersion = FEED.version;
+  DB.feedJobIds = [...feedIds];
+  if (hadFeed || force) api.logActivity(`Job postings updated from job-postings.xlsx (${jobs.length} postings)`, "workflow");
+  persist();
+  FEED.updated = hadFeed;
+  return true;
+}
+
+/** Notice shown to recruiters and managers on the postings pages. */
+function feedNotice() {
+  if (FEED.state === "loading") return `<div class="notice notice-info">Checking job-postings.xlsx for updates…</div>`;
+  if (FEED.state === "loaded") return `<div class="notice notice-info">Postings come from <b>job-postings.xlsx</b> (${FEED.count} postings, version <span class="mono">${esc(FEED.version)}</span>).
+    Changes you save here stay in this browser only. To change a posting for everyone, update the spreadsheet.${FEED.skipped ? ` ${FEED.skipped} invalid row(s) were skipped.` : ""}</div>`;
+  return `<div class="notice notice-warn">${esc(FEED.message)} Showing the postings saved in this browser.</div>`;
+}
+function jobSourceBadge(j) {
+  if (j.source === "local") return ' <span class="badge" title="Created in this browser; not in job-postings.xlsx">Local only</span>';
+  if (j.editedLocally) return ' <span class="badge b-warning" title="Edited in this browser; differs from job-postings.xlsx">Edited here</span>';
+  return "";
+}
+
+/* =====================================================================
    SECTION D — UTILITIES
    ===================================================================== */
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -1075,6 +1167,7 @@ VIEWS.jobs = {
     const L = DB.lookups;
     return `<div class="page-head"><div><h1>Internal Job Postings</h1><p>${emp ? "Explore open internal opportunities and apply." : "Create, publish and manage internal vacancies."}</p></div>
       ${emp ? "" : '<a class="btn btn-primary" href="#/jobs/new">+ New Job Posting</a>'}</div>
+      ${emp ? "" : feedNotice()}
       <div class="card">
         <div class="toolbar" role="search">
           <div class="grow"><label class="sr-only" for="fQ">Search jobs</label>
@@ -1128,7 +1221,7 @@ function jobsTableHtml() {
     ${list.map(j => {
       const n = api.listApps({ jobId: j.id }).length;
       const applied = emp && api.listApps({ jobId: j.id, empId: currentUser().empId }).length;
-      return `<tr><td class="mono small">${esc(j.id)}</td><td><b>${esc(j.title)}</b>${j.featured ? ' <span class="badge b-primary">Featured</span>' : ""}<div class="small muted">${esc(j.family)}</div></td>
+      return `<tr><td class="mono small">${esc(j.id)}</td><td><b>${esc(j.title)}</b>${j.featured ? ' <span class="badge b-primary">Featured</span>' : ""}${emp ? "" : jobSourceBadge(j)}<div class="small muted">${esc(j.family)}</div></td>
       <td>${esc(j.department)}</td><td>${esc(j.grade)}</td><td>${esc(j.location)}<div class="small muted">${esc(j.workMode)}</div></td>
       <td>${fmtDate(j.closeDate)}</td>${emp ? "" : `<td>${n}</td><td>${badge(j.status)}</td>`}
       <td><div class="btn-row" style="flex-wrap:nowrap"><button class="btn btn-sm" data-view-job="${esc(j.id)}">View</button>
@@ -1345,6 +1438,8 @@ const JobForm = {
     return `<div class="page-head"><div><h1>${JobForm.isNew ? "New Job Posting" : "Edit Job Posting"}</h1>
         <p>${JobForm.isNew ? "Complete all mandatory (*) fields before submitting for approval." : `Editing ${esc(j.id)} · current status ${badge(j.status)}`}</p></div>
         <a class="btn" href="#/jobs">← Back to postings</a></div>
+      ${JobForm.isNew ? `<div class="notice notice-info">New postings are saved in this browser only. To publish one for everyone, add it as a row in job-postings.xlsx.</div>`
+        : j.source === "spreadsheet" ? `<div class="notice notice-warn">This posting comes from job-postings.xlsx. Changes you save here stay in this browser and are replaced the next time the spreadsheet changes. To make a change permanent, update the spreadsheet.</div>` : ""}
       ${restored ? `<div class="notice notice-info" id="draftNotice">Restored unsaved changes autosaved locally on ${fmtDate(restored)}. <button class="btn btn-sm" id="discardDraft" type="button">Discard local changes</button></div>` : ""}
       <div class="notice notice-danger" id="formErrors" hidden tabindex="-1"></div>
       <form id="jobForm" novalidate>
@@ -1525,6 +1620,8 @@ const JobForm = {
     const wasNew = JobForm.isNew;
     j.updatedAt = nowStamp();
     if (wasNew) j.history = [{ at: nowStamp(), by: currentUser().name, status: "Draft", note: "Created" }];
+    if (wasNew) j.source = "local";
+    else if (j.source === "spreadsheet") j.editedLocally = true;
     api.saveJob(JSON.parse(JSON.stringify(j)));
     safeStorage.remove(DRAFT_KEY);
     if (act === "draft") {
@@ -2184,7 +2281,10 @@ VIEWS.admin = {
           <li>Resume content is treated as untrusted input: all text is escaped before display; files are type/size validated.</li>
           <li>Applicants never see internal scores or reviewer comments.</li></ul></div></div>`;
     } else {
-      body = `<div class="card"><h3>Prototype data</h3><p class="small">All data lives in this browser's localStorage. Records: ${DB.jobs.length} jobs, ${DB.apps.length} applications, ${DB.activities.length} activity entries.</p>
+      body = `<div class="card"><h3>Job postings source</h3>${feedNotice()}
+          <p class="small">The postings list is maintained in <b>data/job-postings.xlsx</b> in the JobPortal repository. Re-syncing replaces this browser's copies of spreadsheet postings, including edits made here. Postings created only in this browser are kept.</p>
+          <button class="btn" id="resyncFeed" ${FEED.state === "loaded" ? "" : "disabled"}>Re-sync from spreadsheet</button></div>
+        <div class="card"><h3>Prototype data</h3><p class="small">All data lives in this browser's localStorage. Records: ${DB.jobs.length} jobs, ${DB.apps.length} applications, ${DB.activities.length} activity entries.</p>
         <div class="btn-row"><button class="btn" id="exportJson">Export data (JSON)</button><button class="btn btn-danger" id="resetData">Reset to sample data</button></div>
         <p class="hint" style="margin-top:.6rem">Version ${esc(CONFIG.appVersion)}</p></div>`;
     }
@@ -2235,7 +2335,10 @@ VIEWS.admin = {
     });
     const rs = $("#resetData", root);
     if (rs) rs.addEventListener("click", () => confirmDialog({ title: "Reset sample data", message: "Replace all local data with the original sample data? Your changes will be lost.",
-      confirmLabel: "Reset", danger: true, onConfirm() { api.reset(); toast("Sample data restored.", "success"); render(); } }));
+      confirmLabel: "Reset", danger: true, onConfirm() { api.reset(); syncJobFeed({ force: true }).finally(() => { toast("Sample data restored.", "success"); render(); }); } }));
+    const rf = $("#resyncFeed", root);
+    if (rf) rf.addEventListener("click", () => confirmDialog({ title: "Re-sync job postings", message: "Replace this browser's copies of spreadsheet postings with the latest job-postings.xlsx? Edits made here to those postings will be lost.",
+      confirmLabel: "Re-sync", onConfirm() { syncJobFeed({ force: true }).then(ok => { toast(ok ? `Synced ${FEED.count} postings from job-postings.xlsx.` : FEED.message, ok ? "success" : "error"); render(); }); } }));
   },
 };
 
@@ -2276,6 +2379,13 @@ function init() {
   window.addEventListener("hashchange", render);
   window.addEventListener("error", (e) => toast("Unexpected error: " + (e.message || "unknown"), "error"));
   render();
+  // Load postings from the spreadsheet feed, then refresh any view that shows them (never mid-edit).
+  syncJobFeed().then(changed => {
+    const r = parseRoute();
+    const editing = r.module === "jobs" && (r.sub === "new" || r.sub === "edit");
+    if (!modal.isOpen() && !editing && (changed || ["jobs", "admin"].includes(r.module))) render();
+    if (changed && FEED.updated) toast(`Job postings updated from job-postings.xlsx (${FEED.count} postings).`, "success");
+  });
 }
 document.addEventListener("DOMContentLoaded", init);
 </script>
