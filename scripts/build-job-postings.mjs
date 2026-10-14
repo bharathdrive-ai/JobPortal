@@ -191,8 +191,10 @@ async function main() {
   for (const id of weights.keys()) if (!seen.has(id)) fail("Assessment Weights", `rows for unknown Job ID ${id}`);
   if (!jobs.length) fail("Job Postings", "no postings found");
 
+  validateUsers();
+
   if (errors.length) {
-    console.error(`\n✖ ${SOURCE} has ${errors.length} problem(s). Fix them and build again:\n`);
+    console.error(`\n✖ The build found ${errors.length} problem(s) in the data files. Fix them and build again:\n`);
     errors.forEach(e => console.error("  • " + e));
     process.exit(1);
   }
@@ -207,7 +209,44 @@ async function main() {
   await mkdir(`${SITE_DIR}/data`, { recursive: true });
   await copyFile("TalentHub.html", `${SITE_DIR}/TalentHub.html`);
   await copyFile(FEED, `${SITE_DIR}/${FEED}`);
+  await copyFile(USERS, `${SITE_DIR}/${USERS}`);
   console.log(`✔ Site assembled in ./${SITE_DIR}`);
+}
+
+/* ---------------------------------------------------------------- users.json
+   Accounts and role codes. Only salted hashes are allowed: the build fails if
+   a plain-text password (or anything that isn't a valid hash entry) appears. */
+const USERS = "data/users.json";
+const ROLE_CODES = ["JS", "JP", "AD"];
+function validateUsers() {
+  let doc;
+  try { doc = JSON.parse(fs.readFileSync(USERS, "utf8")); }
+  catch (e) { fail(USERS, `cannot read or parse: ${e.message}`); return; }
+  const roles = Array.isArray(doc.roles) ? doc.roles : [];
+  const codes = roles.map(r => r && r.code);
+  ROLE_CODES.forEach(c => { if (!codes.includes(c)) fail(USERS, `roles must include code ${c}`); });
+  if (!Array.isArray(doc.users) || !doc.users.length) { fail(USERS, "users list is empty"); return; }
+  const ids = new Set(), emails = new Set();
+  const b64 = /^[A-Za-z0-9+/]+={0,2}$/;
+  doc.users.forEach((u, i) => {
+    const where = `${USERS} user #${i + 1}${u && u.userId ? ` (${u.userId})` : ""}`;
+    if (!u || typeof u !== "object") { fail(where, "must be an object"); return; }
+    const id = String(u.userId || "").toLowerCase(), email = String(u.email || "").toLowerCase();
+    if (!/^[a-z0-9._-]{3,40}$/.test(id)) fail(where, "userId must be 3–40 characters: letters, digits, dot, dash or underscore");
+    if (ids.has(id)) fail(where, `duplicate userId ${id}`); ids.add(id);
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) fail(where, "email is not valid");
+    if (emails.has(email)) fail(where, `duplicate email ${email}`); emails.add(email);
+    if (!u.name) fail(where, "name is required");
+    if (!ROLE_CODES.includes(u.roleCode)) fail(where, `roleCode must be one of ${ROLE_CODES.join(", ")}`);
+    if (!["Active", "Disabled"].includes(u.status)) fail(where, "status must be Active or Disabled");
+    const p = u.password;
+    if (typeof p === "string" || "plainPassword" in u || "passwordText" in u)
+      fail(where, "contains a plain-text password. Replace it with the output of: npm run hash-password -- \"password\"");
+    else if (!p || p.algo !== "PBKDF2-SHA256" || !(p.iterations >= 100000) || !b64.test(p.salt || "") || !b64.test(p.hash || ""))
+      fail(where, "password must be a PBKDF2-SHA256 entry {algo, iterations ≥ 100000, salt, hash}; create one with npm run hash-password");
+  });
+  if (!doc.users.some(u => u && u.roleCode === "AD" && u.status === "Active")) fail(USERS, "at least one Active Admin (AD) account is required");
+  if (!errors.length) console.log(`✔ ${doc.users.length} user accounts in ${USERS} validated (hashed passwords only)`);
 }
 
 main().catch(e => { console.error(e); process.exit(1); });

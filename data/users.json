@@ -1,0 +1,112 @@
+{
+  "description": "TalentHub user accounts. Passwords are salted PBKDF2-SHA256 hashes; never add plain-text passwords. Create hashes with: npm run hash-password -- \"password\"",
+  "roles": [
+    {
+      "code": "JS",
+      "name": "Job Seeker",
+      "description": "Employees who browse internal jobs, apply and track applications.",
+      "selfRegister": true,
+      "needsApproval": false
+    },
+    {
+      "code": "JP",
+      "name": "Job Poster",
+      "description": "Recruiters and hiring managers who post jobs, assess resumes and evaluate candidates.",
+      "selfRegister": true,
+      "needsApproval": true
+    },
+    {
+      "code": "AD",
+      "name": "Admin",
+      "description": "HR administrators who approve postings, manage users and configure the portal.",
+      "selfRegister": false,
+      "needsApproval": true
+    }
+  ],
+  "users": [
+    {
+      "userId": "sneha.kulkarni",
+      "name": "Sneha Kulkarni",
+      "empId": "EMP-11920",
+      "roleCode": "JS",
+      "department": "Customer Success",
+      "grade": "G5",
+      "designation": "Software Engineer",
+      "tenureMonths": 26,
+      "relExp": 5,
+      "education": "M.C.A. – University of Pune",
+      "email": "sneha.kulkarni@talenthub.example",
+      "status": "Active",
+      "createdAt": "2026-10-15",
+      "password": {
+        "algo": "PBKDF2-SHA256",
+        "iterations": 600000,
+        "salt": "BxKUvf1nUx4bACVCtD/cOg==",
+        "hash": "aNC02bvPA2AZqmSdqCGWFjEtT9jzXru7g1XgSapT25Y="
+      }
+    },
+    {
+      "userId": "rohan.verma",
+      "name": "Rohan Verma",
+      "empId": "EMP-09321",
+      "roleCode": "JS",
+      "department": "Engineering",
+      "grade": "G6",
+      "designation": "Software Engineer II",
+      "tenureMonths": 38,
+      "relExp": 6,
+      "education": "B.Tech, Computer Science – NIT Trichy",
+      "email": "rohan.verma@talenthub.example",
+      "status": "Active",
+      "createdAt": "2026-10-15",
+      "password": {
+        "algo": "PBKDF2-SHA256",
+        "iterations": 600000,
+        "salt": "sbkLRFXyYiHqgR/TJ7htAw==",
+        "hash": "k7RLe5aSFSBYpPPJURDbN+rVAI2b1d9SEVGIhBGPlLU="
+      }
+    },
+    {
+      "userId": "priya.raman",
+      "name": "Priya Raman",
+      "empId": "EMP-10234",
+      "roleCode": "JP",
+      "department": "Human Resources",
+      "grade": "G6",
+      "designation": "Senior Recruiter",
+      "tenureMonths": 41,
+      "relExp": 7,
+      "education": "MBA (HR) – XLRI",
+      "email": "priya.raman@talenthub.example",
+      "status": "Active",
+      "createdAt": "2026-10-15",
+      "password": {
+        "algo": "PBKDF2-SHA256",
+        "iterations": 600000,
+        "salt": "ucXTnOxrwJdBOB4F9zujag==",
+        "hash": "WHvfOL5/TAB/a74z/cGHYyb0Zy2J2CblFbVnNLpCj7E="
+      }
+    },
+    {
+      "userId": "arjun.mehta",
+      "name": "Arjun Mehta",
+      "empId": "EMP-08812",
+      "roleCode": "AD",
+      "department": "Human Resources",
+      "grade": "G8",
+      "designation": "HR Systems Administrator",
+      "tenureMonths": 72,
+      "relExp": 12,
+      "education": "MBA – IIM Indore",
+      "email": "arjun.mehta@talenthub.example",
+      "status": "Active",
+      "createdAt": "2026-10-15",
+      "password": {
+        "algo": "PBKDF2-SHA256",
+        "iterations": 600000,
+        "salt": "iifdKv3Kgb3hZ/eg6Z/6xQ==",
+        "hash": "JeC21s0mUil50OlKxUC0P8OWsAPWMFJ0RPCioQ3u/hI="
+      }
+    }
+  ]
+}

@@ -190,7 +190,39 @@ legend{font-weight:700;padding:0 .4rem;color:var(--primary)}
 .notice-info{background:var(--info-soft);color:var(--info)}
 .notice-warn{background:var(--warning-soft);color:var(--warning)}
 .notice-danger{background:var(--danger-soft);color:var(--danger)}
+.notice-success{background:var(--success-soft);color:var(--success)}
 
+/* Sign-in / registration (shown instead of the app shell when signed out) */
+body.signed-out .sidebar,body.signed-out .topbar,body.signed-out .scrim{display:none}
+body.signed-out .app{grid-template-columns:minmax(0,1fr)}
+.auth-wrap{min-height:calc(100vh - 140px);display:grid;place-items:center;padding-block:1.5rem}
+.auth-card{width:100%;max-width:470px;background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:0 10px 30px rgba(15,23,42,.08);overflow:hidden}
+.auth-card.wide{max-width:640px}
+.auth-head{padding:1.4rem 1.5rem 1rem;background:linear-gradient(120deg,var(--primary-soft),var(--info-soft));display:flex;flex-direction:column;gap:.35rem}
+.auth-head .brand-row{display:flex;align-items:center;gap:.6rem}
+.auth-head h1{margin:0;font-size:1.25rem}
+.auth-head p{margin:0;color:var(--text-2);font-size:.86rem}
+.auth-body{padding:1.2rem 1.5rem 1.5rem;display:flex;flex-direction:column;gap:.9rem}
+.auth-tabs{display:grid;grid-template-columns:1fr 1fr;border-bottom:1px solid var(--border)}
+.auth-tabs button{all:unset;cursor:pointer;text-align:center;padding:.75rem;font-weight:600;font-size:.9rem;color:var(--text-3);border-bottom:2px solid transparent}
+.auth-tabs button.active{color:var(--primary);border-bottom-color:var(--primary)}
+.auth-tabs button:focus-visible{outline:2px solid var(--primary);outline-offset:-2px}
+.role-pick{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.5rem;border:0;padding:0;margin:0}
+.role-pick legend{padding:0;margin-bottom:.35rem;font-size:.82rem;font-weight:600;color:var(--text-2)}
+.role-pick label{display:flex;flex-direction:column;align-items:center;gap:.15rem;padding:.6rem .4rem;border:1px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;text-align:center;font-size:.84rem;font-weight:600}
+.role-pick label small{font-weight:500;color:var(--text-3);font-size:.7rem}
+.role-pick input{position:absolute;opacity:0;pointer-events:none}
+.role-pick label:has(input:checked){border-color:var(--primary);background:var(--primary-soft);color:var(--primary)}
+.role-pick label:has(input:focus-visible){outline:2px solid var(--primary);outline-offset:2px}
+.role-pick.two{grid-template-columns:repeat(2,minmax(0,1fr))}
+.pw-wrap{position:relative}
+.pw-wrap .input{padding-right:4.2rem}
+.pw-toggle{position:absolute;right:.3rem;top:50%;transform:translateY(-50%)}
+.pw-rules{list-style:none;margin:.2rem 0 0;padding:0;display:flex;flex-wrap:wrap;gap:.2rem .8rem;font-size:.74rem;color:var(--text-3)}
+.pw-rules li.ok{color:var(--success)}
+.auth-foot{font-size:.76rem;color:var(--text-3);text-align:center}
+.form-grid.reg-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+@media (max-width:560px){.role-pick{grid-template-columns:1fr}.role-pick.two{grid-template-columns:1fr}.form-grid.reg-grid{grid-template-columns:1fr}}
 /* Dashboard values banner (ANITHA) */
 .values-banner{display:flex;flex-direction:column;gap:.8rem;margin-bottom:1rem;padding:1.1rem 1.2rem;border-radius:var(--radius);
   background:linear-gradient(120deg,var(--primary-soft),var(--info-soft));border:1px solid var(--border)}
@@ -273,7 +305,7 @@ legend{font-weight:700;padding:0 .4rem;color:var(--primary)}
   .kv dt{margin-top:.4rem}
   .user-chip .name{display:none}
   .topbar .title{display:none}
-  #roleSelect{flex:1;min-width:0}
+  .topbar{justify-content:flex-end}
   .bar-row{grid-template-columns:90px 1fr 36px}
 }
 </style>
@@ -301,22 +333,19 @@ legend{font-weight:700;padding:0 .4rem;color:var(--primary)}
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
       </button>
       <div class="title" id="pageTitle">Dashboard</div>
-      <label class="sr-only" for="roleSelect">Demo role</label>
-      <select class="input" id="roleSelect" style="width:auto" title="Switch demo role to see role-based access">
-        <option value="recruiter">Role: Recruiter</option>
-        <option value="manager">Role: Hiring Manager</option>
-        <option value="employee">Role: Employee</option>
-      </select>
       <button class="btn btn-ghost" id="themeBtn" aria-label="Toggle light/dark theme" title="Toggle theme">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
       </button>
       <div class="user-chip">
-        <div class="avatar" id="userAvatar">PR</div>
-        <div class="name small hide-sm"><b id="userName">Priya Raman</b><br><span class="muted" id="userRole">Recruiter</span></div>
+        <div class="avatar" id="userAvatar" aria-hidden="true"></div>
+        <div class="name small hide-sm"><b id="userName"></b><br><span class="muted" id="userRole"></span></div>
       </div>
+      <button class="btn btn-sm" id="signOutBtn" title="Sign out">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+        <span class="hide-sm">Sign out</span></button>
     </header>
     <div class="proto-banner" role="note">
-      <b>Prototype:</b> mock data, no backend, no real authentication. Resume files are validated for type/size only —
+      <b>Prototype:</b> mock data, no backend. Sign-in runs in the browser for demonstration and is not real authentication. Resume files are validated for type/size only —
       text extraction and automated scoring are <b>not implemented</b>; scores shown are sample reviewer-entered values.
     </div>
     <main class="content" id="view" tabindex="-1"></main>
@@ -361,23 +390,25 @@ const CONFIG = {
     "Home address", "Sexual orientation", "Political affiliation"],
 };
 
-/* Users for the role switcher (a real system would use SSO + server-side RBAC). */
-const USERS = {
-  recruiter: { name: "Priya Raman", empId: "EMP-10234", role: "Recruiter", initials: "PR" },
-  manager:   { name: "Arjun Mehta", empId: "EMP-08812", role: "Hiring Manager", initials: "AM" },
-  employee:  { name: "Sneha Kulkarni", empId: "EMP-11920", role: "Employee", initials: "SK" },
+/* Role codes (from data/users.json) mapped to the portal's internal permission keys.
+   employee = Job Seeker, recruiter = Job Poster, admin = Admin. */
+const ROLES = {
+  JS: { code: "JS", name: "Job Seeker", key: "employee", hint: "Find and apply for jobs" },
+  JP: { code: "JP", name: "Job Poster", key: "recruiter", hint: "Post jobs, review candidates" },
+  AD: { code: "AD", name: "Admin", key: "admin", hint: "Approve, manage users" },
 };
+const ROLE_KEYS = Object.values(ROLES).map(r => r.key);
 
 /* Module registry: id, label, icon path, which roles may access it. */
 const MODULES = [
-  { id: "dashboard",  label: "Dashboard",                 roles: ["recruiter", "manager", "employee"], icon: "M3 13h8V3H3zM13 21h8V11h-8zM3 21h8v-6H3zM13 3v6h8V3z" },
-  { id: "jobs",       label: "Internal Job Postings",     roles: ["recruiter", "manager", "employee"], icon: "M4 7h16v13H4zM9 7V4h6v3M4 12h16" },
-  { id: "myapps",     label: "My Applications",           roles: ["recruiter", "manager", "employee"], icon: "M6 3h9l5 5v13H6zM14 3v6h6M9 13h8M9 17h6" },
-  { id: "assessment", label: "Resume Assessment",         roles: ["recruiter", "manager"],             icon: "M9 11l3 3 8-8M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9" },
-  { id: "evaluation", label: "Candidate Evaluation",      roles: ["recruiter", "manager"],             icon: "M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM23 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8" },
-  { id: "approvals",  label: "Approvals & Workflow",      roles: ["recruiter", "manager"],             icon: "M22 11.1V12a10 10 0 1 1-5.9-9.1M22 4L12 14l-3-3" },
-  { id: "reports",    label: "Reports & Analytics",       roles: ["recruiter", "manager"],             icon: "M3 3v18h18M7 15l4-4 3 3 6-6" },
-  { id: "admin",      label: "Administration & Config",   roles: ["recruiter"],                        icon: "M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z" },
+  { id: "dashboard",  label: "Dashboard",                 roles: ["employee", "recruiter", "admin"], icon: "M3 13h8V3H3zM13 21h8V11h-8zM3 21h8v-6H3zM13 3v6h8V3z" },
+  { id: "jobs",       label: "Internal Job Postings",     roles: ["employee", "recruiter", "admin"], icon: "M4 7h16v13H4zM9 7V4h6v3M4 12h16" },
+  { id: "myapps",     label: "My Applications",           roles: ["employee"],                       icon: "M6 3h9l5 5v13H6zM14 3v6h6M9 13h8M9 17h6" },
+  { id: "assessment", label: "Resume Assessment",         roles: ["recruiter", "admin"],             icon: "M9 11l3 3 8-8M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9" },
+  { id: "evaluation", label: "Candidate Evaluation",      roles: ["recruiter", "admin"],             icon: "M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM23 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8" },
+  { id: "approvals",  label: "Approvals & Workflow",      roles: ["recruiter", "admin"],             icon: "M22 11.1V12a10 10 0 1 1-5.9-9.1M22 4L12 14l-3-3" },
+  { id: "reports",    label: "Reports & Analytics",       roles: ["recruiter", "admin"],             icon: "M3 3v18h18M7 15l4-4 3 3 6-6" },
+  { id: "admin",      label: "Administration & Config",   roles: ["admin"],                          icon: "M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z" },
 ];
 
 /* =====================================================================
@@ -894,13 +925,189 @@ const scoring = {
 /* =====================================================================
    SECTION F — SESSION / ROLE (demo only — no real authentication)
    ===================================================================== */
-const prefs = Object.assign({ role: "recruiter", theme: "" }, safeStorage.get(PREF_KEY) || {});
-const currentRole = () => prefs.role;
-const currentUser = () => USERS[prefs.role];
+const prefs = Object.assign({ theme: "" }, safeStorage.get(PREF_KEY) || {});
+const currentUser = () => Auth.user;
+const currentRole = () => (Auth.user ? Auth.user.roleKey : "");
 const canAccess = (moduleId) => { const m = MODULES.find(x => x.id === moduleId); return !!m && m.roles.includes(currentRole()); };
 const isRecruiter = () => currentRole() === "recruiter";
-const isManager = () => currentRole() === "manager";
+const isApprover = () => currentRole() === "admin";      // Admins approve; Job Posters can't approve their own postings
 function savePrefs() { safeStorage.set(PREF_KEY, prefs); }
+
+/* =====================================================================
+   SECTION F2 — SIGN-IN, SESSIONS & REGISTRATION
+   Shared accounts come from data/users.json (role codes JS / JP / AD) and
+   hold only salted PBKDF2-SHA256 password hashes, checked here with Web
+   Crypto. Accounts created with "Create account" are stored in this
+   browser only. PROTOTYPE: anything in the browser can be inspected or
+   changed, so production must authenticate and authorise on a server.
+   ===================================================================== */
+const USERS_URL = "data/users.json";
+const LOCAL_USERS_KEY = "talenthub.localUsers";
+const SESSION_KEY = "talenthub.session";
+const LOCK_KEY = "talenthub.signInLocks";
+const SESSION_HOURS = 8, MAX_FAILS = 5, LOCK_MINUTES = 5, PBKDF2_ITERATIONS = 600000;
+const safeSession = {
+  get(k) { try { return JSON.parse(sessionStorage.getItem(k)); } catch (e) { return null; } },
+  set(k, v) { try { sessionStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* ignore */ } },
+  remove(k) { try { sessionStorage.removeItem(k); } catch (e) { /* ignore */ } },
+};
+const b64ToBytes = (s) => Uint8Array.from(atob(s), c => c.charCodeAt(0));
+const bytesToB64 = (b) => btoa(String.fromCharCode(...new Uint8Array(b)));
+
+const Auth = {
+  user: null,
+  directory: [],            // shared accounts from users.json
+  state: "loading",         // loading | loaded | unavailable
+  message: "",
+
+  /** Loads users.json. Each entry is coerced to the expected shape (treated as untrusted). */
+  async loadDirectory() {
+    try {
+      const res = await fetch(USERS_URL, { cache: "no-store" });
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      const doc = await res.json();
+      Auth.directory = (Array.isArray(doc.users) ? doc.users : []).map(u => Auth.clean(u, "shared")).filter(Boolean);
+      Auth.state = "loaded";
+    } catch (e) {
+      Auth.state = "unavailable";
+      Auth.message = location.protocol === "file:" ? "The page was opened as a local file, so shared accounts from users.json can't be loaded."
+        : `Shared accounts couldn't be loaded (${e.message}).`;
+    }
+  },
+  clean(u, source) {
+    if (!u || typeof u !== "object" || !ROLES[u.roleCode] || !u.password || typeof u.password !== "object") return null;
+    const s = (v, max) => String(v == null ? "" : v).slice(0, max || 200);
+    return { userId: s(u.userId, 40).toLowerCase(), name: s(u.name, 80), email: s(u.email, 120).toLowerCase(), empId: s(u.empId, 20),
+      roleCode: u.roleCode, department: s(u.department), grade: s(u.grade, 10), designation: s(u.designation),
+      tenureMonths: Number(u.tenureMonths) || 0, relExp: Number(u.relExp) || 0, education: s(u.education),
+      status: ["Active", "Pending", "Disabled"].includes(u.status) ? u.status : "Disabled", createdAt: s(u.createdAt, 20),
+      password: { algo: s(u.password.algo, 20), iterations: Number(u.password.iterations) || 0, salt: s(u.password.salt, 100), hash: s(u.password.hash, 100) },
+      source };
+  },
+  localUsers() { return (safeStorage.get(LOCAL_USERS_KEY) || []).map(u => Auth.clean(u, "local")).filter(Boolean); },
+  saveLocalUsers(list) {
+    const ok = safeStorage.set(LOCAL_USERS_KEY, list.map(({ source, ...u }) => u));
+    if (!ok) throw new Error("This browser can't store new accounts (storage is blocked or full).");
+  },
+  allUsers() { return Auth.directory.concat(Auth.localUsers().filter(l => !Auth.directory.some(d => d.userId === l.userId))); },
+  find(login) { const l = norm(login); return Auth.allUsers().find(u => u.userId === l || u.email === l) || null; },
+
+  async derive(password, saltBytes, iterations) {
+    const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(password), "PBKDF2", false, ["deriveBits"]);
+    return crypto.subtle.deriveBits({ name: "PBKDF2", hash: "SHA-256", salt: saltBytes, iterations }, key, 256);
+  },
+  async hashPassword(password) {
+    const salt = crypto.getRandomValues(new Uint8Array(16));
+    const bits = await Auth.derive(password, salt, PBKDF2_ITERATIONS);
+    return { algo: "PBKDF2-SHA256", iterations: PBKDF2_ITERATIONS, salt: bytesToB64(salt), hash: bytesToB64(bits) };
+  },
+  async verify(password, p) {
+    if (!p || p.algo !== "PBKDF2-SHA256" || p.iterations < 100000) return false;
+    let expected;
+    try { expected = b64ToBytes(p.hash); } catch (e) { return false; }
+    const actual = new Uint8Array(await Auth.derive(password, b64ToBytes(p.salt), p.iterations));
+    if (actual.length !== expected.length) return false;
+    let diff = 0;
+    for (let i = 0; i < actual.length; i++) diff |= actual[i] ^ expected[i];   // compare every byte
+    return diff === 0;
+  },
+
+  locks() { return safeStorage.get(LOCK_KEY) || {}; },
+  lockedFor(login) { const l = Auth.locks()[norm(login)]; return l && l.until > Date.now() ? Math.ceil((l.until - Date.now()) / 60000) : 0; },
+  recordFailure(login) {
+    const all = Auth.locks(), k = norm(login), l = all[k] || { fails: 0, until: 0 };
+    l.fails = (l.until && l.until <= Date.now()) ? 1 : l.fails + 1;
+    l.until = l.fails >= MAX_FAILS ? Date.now() + LOCK_MINUTES * 60000 : 0;
+    if (l.until) l.fails = 0;
+    all[k] = l; safeStorage.set(LOCK_KEY, all);
+  },
+  clearFailures(login) { const all = Auth.locks(); delete all[norm(login)]; safeStorage.set(LOCK_KEY, all); },
+
+  /** Returns "" on success, otherwise an error message for the sign-in form. */
+  async signIn(login, password, roleCode) {
+    if (!login || !password) return "Enter your user ID or email and your password.";
+    const mins = Auth.lockedFor(login);
+    if (mins) return `Too many failed attempts. Try again in ${mins} minute${mins > 1 ? "s" : ""}.`;
+    const u = Auth.find(login);
+    // Run the hash even for unknown accounts so both cases take similar time.
+    const ok = await Auth.verify(password, u ? u.password : { algo: "PBKDF2-SHA256", iterations: PBKDF2_ITERATIONS, salt: "AAAAAAAAAAAAAAAAAAAAAA==", hash: "AA==" });
+    if (!u || !ok) { Auth.recordFailure(login); return "The user ID, email or password is incorrect."; }
+    Auth.clearFailures(login);
+    if (u.status === "Pending") return "Your account is waiting for Admin approval.";
+    if (u.status !== "Active") return "This account is disabled. Contact HR to restore access.";
+    if (u.roleCode !== roleCode) return `This account is registered as ${ROLES[u.roleCode].name}. Choose that role to sign in.`;
+    Auth.start(u);
+    return "";
+  },
+  start(u) {
+    Auth.user = Object.assign({}, u, { roleName: ROLES[u.roleCode].name, role: ROLES[u.roleCode].name, roleKey: ROLES[u.roleCode].key, initials: initials(u.name) });
+    delete Auth.user.password;
+    safeSession.set(SESSION_KEY, { userId: u.userId, roleCode: u.roleCode, expires: Date.now() + SESSION_HOURS * 3600000 });
+  },
+  /** Restores a session from this tab, re-checking the account still exists, is active and has that role. */
+  restore() {
+    const s = safeSession.get(SESSION_KEY);
+    if (!s || !(s.expires > Date.now())) { safeSession.remove(SESSION_KEY); return; }
+    const u = Auth.find(s.userId);
+    if (u && u.status === "Active" && u.roleCode === s.roleCode) Auth.start(u); else safeSession.remove(SESSION_KEY);
+  },
+  signOut() { Auth.user = null; safeSession.remove(SESSION_KEY); },
+
+  /** Creates a browser-only account. Returns { error } or { user }. */
+  async register(f) {
+    const errs = {};
+    const name = f.name.trim().replace(/\s+/g, " "), email = f.email.trim().toLowerCase(), empId = f.empId.trim().toUpperCase();
+    if (!/^[\p{L}][\p{L} .'-]{1,79}$/u.test(name)) errs.regName = "Enter your full name (letters, spaces, . ' -).";
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]{2,}$/.test(email) || email.length > 120) errs.regEmail = "Enter a valid work email address.";
+    if (!/^EMP-\d{5}$/.test(empId)) errs.regEmp = "Employee ID looks like EMP-12345.";
+    if (!f.department) errs.regDept = "Choose your department.";
+    if (!f.grade) errs.regGrade = "Choose your grade.";
+    if (!f.designation.trim()) errs.regDesig = "Enter your current designation.";
+    const tenure = Number(f.tenure);
+    if (f.tenure === "" || !Number.isInteger(tenure) || tenure < 0 || tenure > 600) errs.regTenure = "Enter whole months from 0 to 600.";
+    const exp = Number(f.relExp);
+    if (f.relExp === "" || isNaN(exp) || exp < 0 || exp > 50) errs.regExp = "Enter years from 0 to 50.";
+    const role = ROLES[f.roleCode];
+    if (!role || role.code === "AD") errs.regRole = "Choose Job Seeker or Job Poster.";
+    const pwIssues = passwordIssues(f.password, [name, email, empId]);
+    if (pwIssues.length) errs.regPw = "Password needs: " + pwIssues.join(", ") + ".";
+    if (f.password !== f.confirm) errs.regPw2 = "Passwords don't match.";
+    if (!f.consent) errs.regConsent = "Please confirm to continue.";
+    const userId = email.split("@")[0].replace(/[^a-z0-9._-]/g, "").slice(0, 40);
+    if (!errs.regEmail && (Auth.find(email) || Auth.find(userId))) errs.regEmail = "An account with this email already exists. Sign in instead.";
+    if (!errs.regEmp && Auth.allUsers().some(u => u.empId === empId)) errs.regEmp = "This Employee ID already has an account.";
+    if (Object.keys(errs).length) return { errors: errs };
+    const user = { userId, name, email, empId, roleCode: role.code, department: f.department, grade: f.grade, designation: f.designation.trim().slice(0, 80),
+      tenureMonths: tenure, relExp: exp, education: "", status: role.code === "JP" ? "Pending" : "Active", createdAt: CONFIG.today,
+      password: await Auth.hashPassword(f.password) };
+    const list = Auth.localUsers();
+    list.push(user);
+    Auth.saveLocalUsers(list);
+    api.logActivity(`New ${role.name} account registered: ${name}${user.status === "Pending" ? " (awaiting Admin approval)" : ""}`, "workflow");
+    return { user };
+  },
+};
+
+/** Password rules shared by registration and its live checklist. */
+const PW_RULES = [
+  ["10+ characters", (p) => p.length >= 10],
+  ["upper and lower case", (p) => /[a-z]/.test(p) && /[A-Z]/.test(p)],
+  ["a number", (p) => /\d/.test(p)],
+  ["a symbol", (p) => /[^A-Za-z0-9]/.test(p)],
+];
+function passwordIssues(p, personal) {
+  const issues = PW_RULES.filter(([, test]) => !test(p || "")).map(([label]) => label);
+  const lower = (p || "").toLowerCase();
+  if ((personal || []).some(x => x && x.length >= 3 && lower.includes(String(x).toLowerCase().split(/[@\s]/)[0]))) issues.push("not to contain your name, email or ID");
+  return issues;
+}
+
+/** The signed-in Job Seeker's HR profile, used for eligibility checks and applications. */
+function employeeProfile() {
+  const u = currentUser() || {};
+  return { dept: u.department || "", grade: u.grade || "", tenureMonths: Number(u.tenureMonths) || 0, perf: "Meets Expectations",
+    designation: u.designation || "", relExp: Number(u.relExp) || 0, education: u.education || "" };
+}
 
 /* =====================================================================
    SECTION G — TOASTS & MODAL
@@ -966,6 +1173,7 @@ function confirmDialog({ title, message, confirmLabel, danger, requireReason, re
    Hash routes: #/module[/sub][?key=value]
    ===================================================================== */
 const VIEWS = {};   // populated by module sections below
+const APP_TITLE = document.title;
 
 function parseRoute() {
   const raw = location.hash.replace(/^#\/?/, "") || "dashboard";
@@ -979,23 +1187,31 @@ function go(hash) { if (location.hash === hash) render(); else location.hash = h
 
 function renderNav() {
   const route = parseRoute();
-  $("#nav").innerHTML = MODULES.map(m => {
-    const allowed = m.roles.includes(currentRole());
-    return `<li><button data-nav="${m.id}" class="${route.module === m.id ? "active" : ""}" ${route.module === m.id ? 'aria-current="page"' : ""}>
-      ${icon(m.icon)}<span>${esc(m.label)}</span>${allowed ? "" : '<span class="lock" title="Restricted for your role">🔒</span>'}</button></li>`;
-  }).join("");
+  // Only the modules this role may use are listed.
+  $("#nav").innerHTML = MODULES.filter(m => m.roles.includes(currentRole())).map(m =>
+    `<li><button data-nav="${m.id}" class="${route.module === m.id ? "active" : ""}" ${route.module === m.id ? 'aria-current="page"' : ""}>
+      ${icon(m.icon)}<span>${esc(m.label)}</span></button></li>`).join("");
   const u = currentUser();
-  $("#userName").textContent = u.name; $("#userRole").textContent = u.role; $("#userAvatar").textContent = u.initials;
-  $("#roleSelect").value = currentRole();
+  $("#userName").textContent = u.name; $("#userRole").textContent = `${u.roleName} · ${u.roleCode}`; $("#userAvatar").textContent = u.initials;
 }
 
 function render() {
   const route = parseRoute();
   const mod = MODULES.find(m => m.id === route.module);
-  renderNav();
   closeSidebar();
   if (modal.isOpen()) modal.close();
   const view = $("#view");
+  // Signed out: show the sign-in / registration page instead of the portal.
+  if (!currentUser()) {
+    document.body.classList.add("signed-out");
+    document.title = "Sign in · TalentHub";
+    view.innerHTML = LoginView.render();
+    LoginView.bind(view);
+    return;
+  }
+  document.body.classList.remove("signed-out");
+  document.title = APP_TITLE;
+  renderNav();
   if (!mod || !VIEWS[route.module]) {
     $("#pageTitle").textContent = "Not found";
     view.innerHTML = `<div class="card">${emptyState("Page not found", "The requested page does not exist.", '<a class="btn btn-primary" href="#/dashboard">Go to Dashboard</a>')}</div>`;
@@ -1048,9 +1264,6 @@ function scorePill(app) {
 /* =====================================================================
    SECTION I — MODULE: DASHBOARD
    ===================================================================== */
-/* Demo profile of the logged-in employee (from HRIS in production). */
-const EMPLOYEE_PROFILE = { dept: "Customer Success", grade: "G5", tenureMonths: 26, perf: "Meets Expectations", designation: "Software Engineer",
-  relExp: 5, education: "M.C.A. – University of Pune" };
 
 function statCard(label, value, sub, iconPath, tone) {
   const tones = { primary: ["var(--primary-soft)", "var(--primary)"], success: ["var(--success-soft)", "var(--success)"],
@@ -1312,7 +1525,7 @@ function jobTransition(id, action, afterFn) {
     confirmDialog({ title: "Cancel job posting", message: `Cancel “${j.title}”? This withdraws the vacancy. Applicants should be notified.`,
       confirmLabel: "Cancel Job", danger: true, requireReason: true, reasonLabel: "Cancellation reason", onConfirm: (r) => done("Cancelled", "cancelled", r) });
   } else if (action === "publish") {
-    if (!isManager() && !j.approved) { toast("Publishing requires approval. Submit for approval first (approvers: Hiring Manager role).", "error"); return; }
+    if (!isApprover() && !j.approved) { toast("Publishing requires Admin approval. Submit the posting for approval first.", "error"); return; }
     const errs = JobForm.validateJob(j, true);
     if (errs.length) { toast("Cannot publish: " + errs[0].msg, "error"); return; }
     j.approved = true;
@@ -1322,7 +1535,7 @@ function jobTransition(id, action, afterFn) {
 
 /* ---- Eligibility (employee self-check; enforced server-side in production) ---- */
 function eligibilityChecks(j) {
-  const p = EMPLOYEE_PROFILE;
+  const p = employeeProfile();
   return [
     { label: `Department (${p.dept})`, ok: !(j.eligibleDepts || []).length || j.eligibleDepts.includes(p.dept) },
     { label: `Grade (${p.grade})`, ok: !(j.eligibleGrades || []).length || j.eligibleGrades.includes(p.grade) },
@@ -1381,7 +1594,7 @@ function openApplyDialog(jobId) {
         $("#apConsentErr", root).textContent = consent ? "" : "Please confirm to continue.";
         if (!consent) ok = false;
         if (!ok) return;
-        const p = EMPLOYEE_PROFILE;
+        const p = employeeProfile();
         api.createApp({ jobId, name: u.name, empId: u.empId, dept: p.dept, designation: p.designation, grade: p.grade, tenureMonths: p.tenureMonths,
           relExp: p.relExp, skills: [], education: p.education, certs: [], resumeFile: file ? file.name : "(not provided)", appliedAt: CONFIG.today,
           mgrApprovalStatus: j.mgrApproval === "Notify only" ? "Not required" : "Pending", assessStatus: "Pending Assessment",
@@ -1413,7 +1626,7 @@ const JobForm = {
   },
 
   render(route) {
-    if (currentRole() === "employee") return `<div class="card">${emptyState("Access restricted", "Only recruiters and hiring managers can create or edit job postings.")}</div>`;
+    if (currentRole() === "employee") return `<div class="card">${emptyState("Access restricted", "Only Job Posters and Admins can create or edit job postings.")}</div>`;
     let restored = null;
     if (route.sub === "edit") {
       const src = api.getJob(route.id);
@@ -1614,8 +1827,8 @@ const JobForm = {
     const errs = JobForm.validateJob(j, full);
     JobForm.showErrors(errs);
     if (errs.length) { toast("Please correct the highlighted fields.", "error"); return; }
-    if (act === "publish" && !isManager() && !j.approved) {
-      toast("Publishing requires approval. Use “Submit for Approval”, or switch to the Hiring Manager role to approve and publish.", "error"); return;
+    if (act === "publish" && !isApprover() && !j.approved) {
+      toast("Publishing requires Admin approval. Use “Submit for Approval”; an Admin then approves and publishes it.", "error"); return;
     }
     const wasNew = JobForm.isNew;
     j.updatedAt = nowStamp();
@@ -1646,7 +1859,7 @@ VIEWS.myapps = {
     const head = `<div class="page-head"><div><h1>My Applications</h1><p>Track internal applications submitted as ${esc(u.name)} (${esc(u.empId)}).</p></div>
       <a class="btn btn-primary" href="#/jobs">Browse open roles</a></div>`;
     if (!mine.length) return head + `<div class="card">${emptyState("You haven't applied to any internal roles yet",
-      currentRole() === "employee" ? "Browse open positions and apply to track your applications here." : "Switch to the Employee role to see a sample applicant's applications.",
+      "Browse open positions and apply to track your applications here.",
       '<a class="btn btn-primary" href="#/jobs">Browse jobs</a>')}</div>`;
     return head + mine.map(a => {
       const j = api.getJob(a.jobId) || { title: a.jobId, status: "—" };
@@ -2113,7 +2326,7 @@ VIEWS.approvals = {
   render() {
     const pendJobs = api.listJobs().filter(j => j.status === "Pending Approval");
     const pendApps = api.listApps().filter(a => a.mgrApprovalStatus === "Pending" && a.decision !== "Withdrawn");
-    const canAct = isManager();
+    const canAct = isApprover();
     const tabs = [["jobs", `Job posting approvals (${pendJobs.length})`], ["apps", `Manager approvals (${pendApps.length})`], ["pipeline", "Workflow pipeline"], ["audit", "Audit trail"]];
     let body = "";
     if (approvalsTab === "jobs") {
@@ -2148,7 +2361,7 @@ VIEWS.approvals = {
         : emptyState("No audit events yet", "Workflow actions will be logged here.");
     }
     return `<div class="page-head"><div><h1>Approvals &amp; Workflow</h1><p>Approve postings and applications, and monitor the hiring pipeline.</p></div></div>
-      ${canAct ? "" : '<div class="notice notice-info">You are viewing as <b>Recruiter</b>. Approval actions require the <b>Hiring Manager</b> role (switch roles in the header to try them). This enforces separation of duties.</div>'}
+      ${canAct ? "" : '<div class="notice notice-info">You are signed in as a <b>Job Poster</b>. Approvals are done by an <b>Admin</b>, so nobody approves their own postings.</div>'}
       <div class="card"><div class="tabs" role="tablist">${tabs.map(([k, l]) => `<button role="tab" aria-selected="${approvalsTab === k}" class="${approvalsTab === k ? "active" : ""}" data-tab="${k}">${esc(l)}</button>`).join("")}</div>${body}</div>`;
   },
   bind(route, root) {
@@ -2244,12 +2457,14 @@ VIEWS.reports = {
 /* =====================================================================
    SECTION Q — MODULE: ADMINISTRATION & CONFIGURATION
    ===================================================================== */
-let adminTab = "profiles";
+let adminTab = "users";
 VIEWS.admin = {
   render() {
-    const tabs = [["profiles", "Assessment profiles"], ["lookups", "Master data"], ["access", "Roles & access"], ["policy", "Responsible assessment"], ["data", "Prototype data"]];
+    const tabs = [["users", "User accounts"], ["profiles", "Assessment profiles"], ["lookups", "Master data"], ["access", "Roles & access"], ["policy", "Responsible assessment"], ["data", "Prototype data"]];
     let body = "";
-    if (adminTab === "profiles") {
+    if (adminTab === "users") {
+      body = UsersAdmin.render();
+    } else if (adminTab === "profiles") {
       body = DB.profiles.map(p => `<div class="card"><div class="card-head"><h3>${esc(p.name)} <span class="mono small muted">${esc(p.id)}</span></h3>
           <span class="small">Used by ${api.listJobs().filter(j => j.profileId === p.id).length} job(s)</span></div>
         <div class="table-wrap"><table><thead><tr><th>Criterion</th><th style="width:150px">Default weight (%)</th></tr></thead><tbody>
@@ -2265,10 +2480,11 @@ VIEWS.admin = {
           <div style="display:flex;gap:.4rem;margin-top:.6rem"><input class="input" data-new-lk="${k}" placeholder="Add new…" maxlength="60" aria-label="New ${esc(l)} value"><button class="btn btn-sm" data-add-lk="${k}">Add</button></div></div>`).join("")}</div>`;
     } else if (adminTab === "access") {
       body = `<div class="notice notice-warn">Prototype: role checks run in the browser for demonstration. Production must enforce authorization on the server (SSO + RBAC, record-level access to resumes).</div>
-        <div class="table-wrap"><table><thead><tr><th>Module</th><th>Recruiter</th><th>Hiring Manager</th><th>Employee</th></tr></thead><tbody>
-        ${MODULES.map(m => `<tr><td>${esc(m.label)}</td>${["recruiter", "manager", "employee"].map(r => `<td>${m.roles.includes(r) ? '<span class="badge b-success">Allowed</span>' : '<span class="badge b-danger">Restricted</span>'}</td>`).join("")}</tr>`).join("")}
-        <tr><td>Approve postings / manager approvals</td><td><span class="badge b-danger">Restricted</span></td><td><span class="badge b-success">Allowed</span></td><td><span class="badge b-danger">Restricted</span></td></tr>
-        <tr><td>View candidate scores &amp; comments</td><td><span class="badge b-success">Allowed</span></td><td><span class="badge b-success">Allowed</span></td><td><span class="badge b-danger">Restricted</span></td></tr>
+        <div class="table-wrap"><table><thead><tr><th>Module</th>${Object.values(ROLES).map(r => `<th>${esc(r.name)} (${r.code})</th>`).join("")}</tr></thead><tbody>
+        ${MODULES.map(m => `<tr><td>${esc(m.label)}</td>${Object.values(ROLES).map(r => r.key).map(r => `<td>${m.roles.includes(r) ? '<span class="badge b-success">Allowed</span>' : '<span class="badge b-danger">Restricted</span>'}</td>`).join("")}</tr>`).join("")}
+        <tr><td>Approve postings / manager approvals</td><td><span class="badge b-danger">Restricted</span></td><td><span class="badge b-danger">Restricted</span></td><td><span class="badge b-success">Allowed</span></td></tr>
+        <tr><td>View candidate scores &amp; comments</td><td><span class="badge b-danger">Restricted</span></td><td><span class="badge b-success">Allowed</span></td><td><span class="badge b-success">Allowed</span></td></tr>
+        <tr><td>Manage user accounts</td><td><span class="badge b-danger">Restricted</span></td><td><span class="badge b-danger">Restricted</span></td><td><span class="badge b-success">Allowed</span></td></tr>
         </tbody></table></div>`;
     } else if (adminTab === "policy") {
       body = `<div class="grid g-2"><div class="card"><h3>Excluded from scoring</h3><p class="small muted">These attributes are never collected as assessment inputs and must not appear in criteria.</p>
@@ -2293,6 +2509,7 @@ VIEWS.admin = {
   },
   bind(route, root) {
     $$("[data-tab]", root).forEach(b => b.addEventListener("click", () => { adminTab = b.dataset.tab; render(); }));
+    if (adminTab === "users") UsersAdmin.bind(root);
     // Profiles
     $$("[data-pw]", root).forEach(inp => inp.addEventListener("input", () => {
       const pid = inp.dataset.pw, t = $$(`[data-pw="${pid}"]`, root).reduce((s, x) => s + (Number(x.value) || 0), 0);
@@ -2343,9 +2560,212 @@ VIEWS.admin = {
 };
 
 /* =====================================================================
+   SECTION Q2 — SIGN-IN & REGISTRATION PAGE
+   ===================================================================== */
+const LoginView = {
+  tab: "signin",          // signin | register
+  role: "JS",             // role chosen on the sign-in form
+  notice: null,           // { type, text } shown above the form
+  busy: false,
+
+  render() {
+    const t = LoginView.tab;
+    const notice = LoginView.notice ? `<div class="notice notice-${LoginView.notice.type === "error" ? "danger" : LoginView.notice.type}" role="status">${esc(LoginView.notice.text)}</div>` : "";
+    const dirNote = Auth.state === "unavailable" ? `<div class="notice notice-warn small">${esc(Auth.message)} Accounts created in this browser still work.</div>` : "";
+    return `<div class="auth-wrap"><div class="auth-card ${t === "register" ? "wide" : ""}">
+      <div class="auth-head"><div class="brand-row"><div class="brand-logo" aria-hidden="true">TH</div><div><h1>TalentHub</h1>
+        <p>Internal Careers &amp; Resume Assessment</p></div></div>
+        <p class="values-tagline" style="text-align:left;font-size:.9rem">“Aspire to Grow. Empower Your Future.”</p></div>
+      <div class="auth-tabs" role="tablist">
+        <button role="tab" id="tabSignin" aria-selected="${t === "signin"}" class="${t === "signin" ? "active" : ""}" data-auth-tab="signin">Sign in</button>
+        <button role="tab" id="tabRegister" aria-selected="${t === "register"}" class="${t === "register" ? "active" : ""}" data-auth-tab="register">Create account</button></div>
+      <div class="auth-body">${notice}${dirNote}${t === "signin" ? LoginView.signinForm() : LoginView.registerForm()}</div>
+    </div></div>`;
+  },
+
+  signinForm() {
+    return `<form id="signinForm" novalidate style="display:flex;flex-direction:column;gap:.9rem">
+      <fieldset class="role-pick"><legend>Sign in as</legend>
+        ${Object.values(ROLES).map(r => `<label><input type="radio" name="role" value="${r.code}" ${LoginView.role === r.code ? "checked" : ""}>
+          ${esc(r.name)}<small>${esc(r.hint)}</small></label>`).join("")}</fieldset>
+      <div class="field"><label for="siLogin">User ID or email</label>
+        <input id="siLogin" class="input" autocomplete="username" maxlength="120" required></div>
+      <div class="field"><label for="siPw">Password</label>
+        <div class="pw-wrap"><input id="siPw" class="input" type="password" autocomplete="current-password" maxlength="200" required>
+          <button type="button" class="btn btn-ghost btn-sm pw-toggle" data-pw-toggle="siPw" aria-label="Show password">Show</button></div></div>
+      <div class="err" id="siErr" role="alert"></div>
+      <button class="btn btn-primary" type="submit" id="siSubmit">Sign in</button>
+      <p class="auth-foot">New here? <a href="#" data-auth-tab="register">Create an account</a>. Demo accounts are listed in <span class="mono">docs/demo-accounts.md</span> in the repository.</p>
+    </form>`;
+  },
+
+  registerForm() {
+    const L = DB.lookups;
+    const field = (id, label, input, span) => `<div class="field ${span ? "span-2" : ""}"><label for="${id}" class="req">${label}</label>${input}<div class="err" data-reg-err="${id}"></div></div>`;
+    return `<form id="registerForm" novalidate style="display:flex;flex-direction:column;gap:.9rem">
+      <fieldset class="role-pick two"><legend>I want to</legend>
+        ${["JS", "JP"].map(c => `<label><input type="radio" name="regRole" value="${c}" ${c === "JS" ? "checked" : ""}>${esc(ROLES[c].name)}<small>${esc(ROLES[c].hint)}</small></label>`).join("")}</fieldset>
+      <div class="err" data-reg-err="regRole"></div>
+      <p class="hint" style="margin:-.4rem 0 0">Job Poster accounts need Admin approval before first sign-in. Admin accounts are created by HR.</p>
+      <div class="form-grid reg-grid">
+        ${field("regName", "Full name", `<input id="regName" class="input" autocomplete="name" maxlength="80">`)}
+        ${field("regEmail", "Work email", `<input id="regEmail" class="input" type="email" autocomplete="email" maxlength="120">`)}
+        ${field("regEmp", "Employee ID", `<input id="regEmp" class="input" placeholder="EMP-12345" maxlength="9">`)}
+        ${field("regDesig", "Current designation", `<input id="regDesig" class="input" maxlength="80">`)}
+        ${field("regDept", "Department", `<select id="regDept" class="input">${optionList(L.departments, "", "Select…")}</select>`)}
+        ${field("regGrade", "Grade", `<select id="regGrade" class="input">${optionList(L.grades, "", "Select…")}</select>`)}
+        ${field("regTenure", "Months with the company", `<input id="regTenure" class="input" type="number" min="0" max="600" step="1">`)}
+        ${field("regExp", "Relevant experience (years)", `<input id="regExp" class="input" type="number" min="0" max="50" step="0.5">`)}
+        ${field("regPw", "Password", `<div class="pw-wrap"><input id="regPw" class="input" type="password" autocomplete="new-password" maxlength="200">
+            <button type="button" class="btn btn-ghost btn-sm pw-toggle" data-pw-toggle="regPw" aria-label="Show password">Show</button></div>
+            <ul class="pw-rules" id="pwRules" aria-live="polite">${PW_RULES.map(([l]) => `<li>${esc(l)}</li>`).join("")}</ul>`)}
+        ${field("regPw2", "Confirm password", `<input id="regPw2" class="input" type="password" autocomplete="new-password" maxlength="200">`)}
+      </div>
+      <label class="small" style="display:flex;gap:.4rem;align-items:flex-start"><input type="checkbox" id="regConsent">
+        <span>I confirm these details are accurate and agree that HR may use them to manage my internal applications.</span></label>
+      <div class="err" data-reg-err="regConsent"></div>
+      <button class="btn btn-primary" type="submit" id="regSubmit">Create account</button>
+      <p class="auth-foot">New accounts are saved in this browser. An Admin can add them to the shared accounts file (data/users.json).</p>
+    </form>`;
+  },
+
+  bind(root) {
+    $$("[data-auth-tab]", root).forEach(b => b.addEventListener("click", (e) => {
+      e.preventDefault(); LoginView.tab = b.dataset.authTab; LoginView.notice = null; render();
+      const first = $(LoginView.tab === "signin" ? "#siLogin" : "#regName"); if (first) first.focus();
+    }));
+    $$("[data-pw-toggle]", root).forEach(b => b.addEventListener("click", () => {
+      const inp = $("#" + b.dataset.pwToggle), show = inp.type === "password";
+      inp.type = show ? "text" : "password"; b.textContent = show ? "Hide" : "Show"; b.setAttribute("aria-label", show ? "Hide password" : "Show password");
+    }));
+    const si = $("#signinForm", root);
+    if (si) {
+      $$("input[name=role]", si).forEach(r => r.addEventListener("change", () => { LoginView.role = r.value; }));
+      if (LoginView.prefill) { $("#siLogin", si).value = LoginView.prefill; LoginView.prefill = ""; $("#siPw", si).focus(); }
+      si.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        if (LoginView.busy) return;
+        const btn = $("#siSubmit", si), err = $("#siErr", si);
+        LoginView.busy = true; btn.disabled = true; btn.textContent = "Signing in…"; err.textContent = "";
+        let msg;
+        try { msg = await Auth.signIn($("#siLogin", si).value.trim(), $("#siPw", si).value, LoginView.role); }
+        catch (ex) { msg = "Sign-in isn't available in this browser (" + ex.message + ")."; }
+        LoginView.busy = false;
+        if (msg) { err.textContent = msg; btn.disabled = false; btn.textContent = "Sign in"; $("#siPw", si).value = ""; $("#siPw", si).focus(); return; }
+        LoginView.notice = null;
+        toast(`Welcome, ${currentUser().name.split(" ")[0]}. Signed in as ${currentUser().roleName}.`, "success");
+        if (location.hash && location.hash !== "#/dashboard") location.hash = "#/dashboard"; else render();
+      });
+    }
+    const rf = $("#registerForm", root);
+    if (rf) {
+      const pw = $("#regPw", rf);
+      pw.addEventListener("input", () => {
+        $$("#pwRules li", rf).forEach((li, i) => li.classList.toggle("ok", PW_RULES[i][1](pw.value)));
+      });
+      rf.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        if (LoginView.busy) return;
+        const v = (id) => $("#" + id, rf).value;
+        const data = { roleCode: (rf.querySelector("input[name=regRole]:checked") || {}).value, name: v("regName"), email: v("regEmail"), empId: v("regEmp"),
+          designation: v("regDesig"), department: v("regDept"), grade: v("regGrade"), tenure: v("regTenure"), relExp: v("regExp"),
+          password: v("regPw"), confirm: v("regPw2"), consent: $("#regConsent", rf).checked };
+        $$("[data-reg-err]", rf).forEach(el => el.textContent = "");
+        $$("[aria-invalid]", rf).forEach(el => el.removeAttribute("aria-invalid"));
+        const btn = $("#regSubmit", rf);
+        LoginView.busy = true; btn.disabled = true; btn.textContent = "Creating account…";
+        let res;
+        try { res = await Auth.register(data); } catch (ex) { res = { errors: { regConsent: ex.message } }; }
+        LoginView.busy = false; btn.disabled = false; btn.textContent = "Create account";
+        if (res.errors) {
+          Object.entries(res.errors).forEach(([id, msg]) => {
+            const slot = $(`[data-reg-err="${id}"]`, rf); if (slot) slot.textContent = msg;
+            const inp = $("#" + id, rf); if (inp) inp.setAttribute("aria-invalid", "true");
+          });
+          const firstBad = $("[aria-invalid=true]", rf); if (firstBad) firstBad.focus();
+          toast("Please correct the highlighted fields.", "error");
+          return;
+        }
+        const u = res.user;
+        LoginView.tab = "signin"; LoginView.role = u.roleCode; LoginView.prefill = u.userId;
+        LoginView.notice = u.status === "Pending"
+          ? { type: "warn", text: `Account created for ${u.name} (user ID ${u.userId}). Job Poster accounts need Admin approval; you can sign in once an Admin approves it.` }
+          : { type: "success", text: `Account created. Your user ID is ${u.userId}. Sign in to continue.` };
+        render();
+      });
+    }
+  },
+};
+STATUS_CLASS["Active"] = "b-success"; STATUS_CLASS["Disabled"] = "b-danger";
+
+/* Admin → User accounts: shared accounts (read-only) and accounts created in this browser. */
+const UsersAdmin = {
+  render() {
+    const row = (u, actions) => `<tr><td><b>${esc(u.name)}</b><div class="small muted">${esc(u.designation || "")}</div></td>
+      <td class="mono small">${esc(u.userId)}<div class="muted">${esc(u.email)}</div></td><td class="mono small">${esc(u.empId)}</td>
+      <td>${esc(ROLES[u.roleCode].name)} <span class="mono small muted">${esc(u.roleCode)}</span></td><td>${badge(u.status)}</td>${actions ? `<td>${actions}</td>` : ""}</tr>`;
+    const head = (extra) => `<thead><tr><th>Name</th><th>User ID / email</th><th>Employee ID</th><th>Role</th><th>Status</th>${extra ? "<th>Actions</th>" : ""}</tr></thead>`;
+    const local = Auth.localUsers();
+    const self = currentUser().userId;
+    return `<div class="card"><div class="card-head"><h3>Shared accounts <span class="small muted">data/users.json</span></h3>${Auth.state === "loaded" ? badge("Active") : badge("Disabled")}</div>
+        ${Auth.state === "loaded" ? `<div class="table-wrap"><table>${head(false)}<tbody>${Auth.directory.map(u => row(u)).join("")}</tbody></table></div>
+          <p class="hint" style="margin-top:.5rem">To add, change or disable a shared account, edit data/users.json in the repository (passwords must be hashed with <span class="mono">npm run hash-password</span>) and push.</p>`
+          : `<div class="notice notice-warn">${esc(Auth.message)}</div>`}</div>
+      <div class="card"><div class="card-head"><h3>Accounts created in this browser</h3>
+          <button class="btn btn-sm" id="copyUsersJson" ${local.length ? "" : "disabled"}>Copy as users.json entries</button></div>
+        ${local.length ? `<div class="table-wrap"><table>${head(true)}<tbody>${local.map(u => row(u, `<div class="btn-row" style="flex-wrap:nowrap">
+            ${u.status === "Pending" ? `<button class="btn btn-sm btn-success" data-user-act="approve" data-user="${esc(u.userId)}">Approve</button>` : ""}
+            ${u.status === "Active" && u.userId !== self ? `<button class="btn btn-sm btn-danger" data-user-act="disable" data-user="${esc(u.userId)}">Disable</button>` : ""}
+            ${u.status === "Disabled" ? `<button class="btn btn-sm" data-user-act="enable" data-user="${esc(u.userId)}">Enable</button>` : ""}
+            ${u.status !== "Active" ? `<button class="btn btn-sm btn-ghost" data-user-act="delete" data-user="${esc(u.userId)}">Delete</button>` : ""}</div>`)).join("")}</tbody></table></div>`
+          : emptyState("No accounts created in this browser", "Accounts registered from the sign-in page on this browser appear here.")}
+        <p class="hint" style="margin-top:.5rem">These accounts exist only in this browser. To make one available everywhere, copy it as JSON and add it to data/users.json.</p></div>`;
+  },
+  bind(root) {
+    $$("[data-user-act]", root).forEach(b => b.addEventListener("click", () => {
+      const list = Auth.localUsers(), u = list.find(x => x.userId === b.dataset.user), act = b.dataset.userAct;
+      if (!u) return;
+      const apply = () => {
+        if (act === "delete") list.splice(list.indexOf(u), 1);
+        else u.status = act === "disable" ? "Disabled" : "Active";
+        Auth.saveLocalUsers(list);
+        api.logActivity(`${currentUser().name} ${act === "approve" ? "approved" : act + "d"} the account ${u.userId}`, "workflow");
+        toast(`Account ${u.userId} ${act === "approve" ? "approved" : act + "d"}.`, "success"); render();
+      };
+      if (act === "approve" || act === "enable") apply();
+      else confirmDialog({ title: act === "delete" ? "Delete account" : "Disable account",
+        message: `${act === "delete" ? "Delete" : "Disable"} the account ${u.userId} (${u.name})?${act === "delete" ? " This can't be undone." : ""}`,
+        confirmLabel: act === "delete" ? "Delete" : "Disable", danger: true, onConfirm: apply });
+    }));
+    const cp = $("#copyUsersJson", root);
+    if (cp) cp.addEventListener("click", () => {
+      const entries = Auth.localUsers().map(({ source, ...u }) => Object.assign(u, { status: u.status === "Pending" ? "Disabled" : u.status }));
+      showTextDialog("users.json entries", JSON.stringify(entries, null, 2),
+        "Paste these objects into the \"users\" array of data/users.json, then commit and push. Pending accounts are exported as Disabled until approved. Passwords are already hashed.");
+    });
+  },
+};
+
+/** Read-only text dialog with a Copy button (used for JSON hand-offs). */
+function showTextDialog(title, text, hint) {
+  modal.open({ title, size: "wide",
+    body: `${hint ? `<p class="small">${esc(hint)}</p>` : ""}<label class="sr-only" for="textDialog">${esc(title)}</label>
+      <textarea id="textDialog" class="input mono" readonly style="min-height:300px;font-size:.78rem">${esc(text)}</textarea>`,
+    foot: `<button class="btn" data-close>Close</button><button class="btn btn-primary" id="copyTextDialog">Copy to clipboard</button>`,
+    onOpen(root) {
+      $("#copyTextDialog", root).addEventListener("click", () => {
+        const ta = $("#textDialog", root);
+        const fallback = () => { ta.focus(); ta.select(); toast("Text selected. Press Ctrl+C to copy.", "warn"); };
+        if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(ta.value).then(() => toast("Copied to clipboard.", "success"), fallback);
+        else fallback();
+      });
+    } });
+}
+
+/* =====================================================================
    SECTION R — INITIALISATION & GLOBAL EVENT WIRING
    ===================================================================== */
-function init() {
+async function init() {
   applyTheme();
   $("#nav").addEventListener("click", (e) => { const b = e.target.closest("[data-nav]"); if (b) go("#/" + b.dataset.nav); });
   $("#menuBtn").addEventListener("click", () => {
@@ -2358,10 +2778,10 @@ function init() {
     prefs.theme = effectiveTheme() === "dark" ? "light" : "dark"; savePrefs(); applyTheme();
     toast(`Switched to ${prefs.theme} theme.`);
   });
-  $("#roleSelect").addEventListener("change", (e) => {
-    prefs.role = e.target.value; savePrefs();
-    toast(`Now viewing as ${currentUser().name} (${currentUser().role}).`, "success");
-    render();
+  $("#signOutBtn").addEventListener("click", () => {
+    const name = currentUser() ? currentUser().name : "";
+    Auth.signOut(); LoginView.tab = "signin"; LoginView.notice = { type: "info", text: `${name ? name + ", you" : "You"} have signed out.` };
+    if (location.hash && location.hash !== "#/dashboard") location.hash = "#/dashboard"; else render();
   });
   // Modal: close button, backdrop click, Escape, focus trap
   $("#modalBackdrop").addEventListener("click", (e) => { if (e.target.id === "modalBackdrop" || e.target.closest("[data-close]")) modal.close(); });
@@ -2378,6 +2798,10 @@ function init() {
   });
   window.addEventListener("hashchange", render);
   window.addEventListener("error", (e) => toast("Unexpected error: " + (e.message || "unknown"), "error"));
+  // Load shared accounts, restore this tab's session, then show the portal or the sign-in page.
+  $("#view").innerHTML = '<div class="empty">Loading TalentHub…</div>';
+  await Auth.loadDirectory();
+  Auth.restore();
   render();
   // Load postings from the spreadsheet feed, then refresh any view that shows them (never mid-edit).
   syncJobFeed().then(changed => {

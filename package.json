@@ -4,7 +4,8 @@
   "description": "TalentHub internal careers portal. Job postings are maintained in data/job-postings.xlsx.",
   "type": "module",
   "scripts": {
-    "build": "node scripts/build-job-postings.mjs"
+    "build": "node scripts/build-job-postings.mjs",
+    "hash-password": "node scripts/hash-password.mjs"
   },
   "dependencies": {
     "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
