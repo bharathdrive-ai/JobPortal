@@ -191,6 +191,13 @@ legend{font-weight:700;padding:0 .4rem;color:var(--primary)}
 .notice-warn{background:var(--warning-soft);color:var(--warning)}
 .notice-danger{background:var(--danger-soft);color:var(--danger)}
 
+/* Dashboard values banner (ANITHA) */
+.values-banner{display:flex;flex-direction:column;gap:.8rem;margin-bottom:1rem;padding:1.1rem 1.2rem;border-radius:var(--radius);
+  background:linear-gradient(120deg,var(--primary-soft),var(--info-soft));border:1px solid var(--border)}
+.values-list{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;justify-content:center;gap:.3rem .9rem}
+.values-word{font-size:.9rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--primary)}
+.values-word + .values-word::before{content:"·";margin-right:.9rem;color:var(--text-3)}
+.values-tagline{margin:0;text-align:center;font-size:1.05rem;font-weight:600;font-style:italic;color:var(--text);text-wrap:balance}
 .empty{text-align:center;padding:2.5rem 1rem;color:var(--text-3)}
 .empty svg{width:42px;height:42px;opacity:.5;margin-bottom:.5rem}
 
@@ -960,6 +967,14 @@ function statCard(label, value, sub, iconPath, tone) {
     <div><div class="v">${esc(value)}</div><div class="l">${esc(label)}</div>${sub ? `<div class="hint">${esc(sub)}</div>` : ""}</div></div>`;
 }
 
+/* Dashboard banner: the ANITHA growth values. */
+const GROWTH_VALUES = ["Aspire", "Nurture", "Improve", "Transform", "Headway", "Achieve"];
+function valuesBanner() {
+  return `<section class="values-banner" aria-label="Our growth values">
+    <ul class="values-list">${GROWTH_VALUES.map(word => `<li class="values-word">${esc(word)}</li>`).join("")}</ul>
+    <p class="values-tagline">“Aspire to Grow. Empower Your Future.”</p></section>`;
+}
+
 VIEWS.dashboard = {
   render() {
     const jobs = api.listJobs(), apps = api.listApps();
@@ -968,7 +983,7 @@ VIEWS.dashboard = {
     const u = currentUser();
     const head = `<div class="page-head"><div><h1>Welcome back, ${esc(u.name.split(" ")[0])}</h1>
       <p>${esc(new Date().toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long", year: "numeric" }))} · ${esc(u.role)} view</p></div>
-      ${currentRole() !== "employee" ? '<a class="btn btn-primary" href="#/jobs/new">+ New Job Posting</a>' : '<a class="btn btn-primary" href="#/jobs">Browse open roles</a>'}</div>`;
+      ${currentRole() !== "employee" ? '<a class="btn btn-primary" href="#/jobs/new">+ New Job Posting</a>' : '<a class="btn btn-primary" href="#/jobs">Browse open roles</a>'}</div>` + valuesBanner();
 
     const featuredHtml = featured.length ? featured.map(j => `
       <div class="card job-card">
