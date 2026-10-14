@@ -1,5 +1,5 @@
 {
-  "description": "TalentHub user accounts. Passwords are salted PBKDF2-SHA256 hashes; never add plain-text passwords. Create hashes with: npm run hash-password -- \"password\"",
+  "description": "TalentHub user accounts. Passwords are salted PBKDF2-SHA256 hashes; never add plain-text passwords. Create hashes with: npm run hash-password -- \"password\". uIdKey is the mandatory primary key (format uid_GE0001); never change or reuse one.",
   "roles": [
     {
       "code": "JS",
@@ -25,6 +25,7 @@
   ],
   "users": [
     {
+      "uIdKey": "uid_GE0001",
       "userId": "sneha.kulkarni",
       "name": "Sneha Kulkarni",
       "empId": "EMP-11920",
@@ -46,6 +47,7 @@
       }
     },
     {
+      "uIdKey": "uid_GE0002",
       "userId": "rohan.verma",
       "name": "Rohan Verma",
       "empId": "EMP-09321",
@@ -67,6 +69,7 @@
       }
     },
     {
+      "uIdKey": "uid_GE0003",
       "userId": "priya.raman",
       "name": "Priya Raman",
       "empId": "EMP-10234",
@@ -88,6 +91,7 @@
       }
     },
     {
+      "uIdKey": "uid_GE0004",
       "userId": "arjun.mehta",
       "name": "Arjun Mehta",
       "empId": "EMP-08812",

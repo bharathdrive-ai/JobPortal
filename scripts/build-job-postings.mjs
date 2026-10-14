@@ -226,11 +226,16 @@ function validateUsers() {
   const codes = roles.map(r => r && r.code);
   ROLE_CODES.forEach(c => { if (!codes.includes(c)) fail(USERS, `roles must include code ${c}`); });
   if (!Array.isArray(doc.users) || !doc.users.length) { fail(USERS, "users list is empty"); return; }
-  const ids = new Set(), emails = new Set();
+  const keys = new Set(), ids = new Set(), emails = new Set();
   const b64 = /^[A-Za-z0-9+/]+={0,2}$/;
   doc.users.forEach((u, i) => {
     const where = `${USERS} user #${i + 1}${u && u.userId ? ` (${u.userId})` : ""}`;
     if (!u || typeof u !== "object") { fail(where, "must be an object"); return; }
+    // uIdKey: mandatory primary key, e.g. uid_GE0001
+    if (!u.uIdKey) fail(where, "uIdKey is required (format uid_GE0001)");
+    else if (!/^uid_GE\d{4,}$/.test(u.uIdKey)) fail(where, `uIdKey "${u.uIdKey}" must look like uid_GE0001`);
+    else if (keys.has(u.uIdKey)) fail(where, `duplicate uIdKey ${u.uIdKey}`);
+    keys.add(u.uIdKey);
     const id = String(u.userId || "").toLowerCase(), email = String(u.email || "").toLowerCase();
     if (!/^[a-z0-9._-]{3,40}$/.test(id)) fail(where, "userId must be 3–40 characters: letters, digits, dot, dash or underscore");
     if (ids.has(id)) fail(where, `duplicate userId ${id}`); ids.add(id);

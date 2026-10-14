@@ -945,6 +945,7 @@ const USERS_URL = "data/users.json";
 const LOCAL_USERS_KEY = "talenthub.localUsers";
 const SESSION_KEY = "talenthub.session";
 const LOCK_KEY = "talenthub.signInLocks";
+const UID_KEY_RE = /^uid_GE\d{4,}$/;   // primary-key format for every account
 const SESSION_HOURS = 8, MAX_FAILS = 5, LOCK_MINUTES = 5, PBKDF2_ITERATIONS = 600000;
 const safeSession = {
   get(k) { try { return JSON.parse(sessionStorage.getItem(k)); } catch (e) { return null; } },
@@ -976,20 +977,36 @@ const Auth = {
   },
   clean(u, source) {
     if (!u || typeof u !== "object" || !ROLES[u.roleCode] || !u.password || typeof u.password !== "object") return null;
+    if (!UID_KEY_RE.test(String(u.uIdKey || ""))) return null;          // uIdKey is the mandatory primary key
     const s = (v, max) => String(v == null ? "" : v).slice(0, max || 200);
-    return { userId: s(u.userId, 40).toLowerCase(), name: s(u.name, 80), email: s(u.email, 120).toLowerCase(), empId: s(u.empId, 20),
+    return { uIdKey: String(u.uIdKey), userId: s(u.userId, 40).toLowerCase(), name: s(u.name, 80), email: s(u.email, 120).toLowerCase(), empId: s(u.empId, 20),
       roleCode: u.roleCode, department: s(u.department), grade: s(u.grade, 10), designation: s(u.designation),
       tenureMonths: Number(u.tenureMonths) || 0, relExp: Number(u.relExp) || 0, education: s(u.education),
       status: ["Active", "Pending", "Disabled"].includes(u.status) ? u.status : "Disabled", createdAt: s(u.createdAt, 20),
       password: { algo: s(u.password.algo, 20), iterations: Number(u.password.iterations) || 0, salt: s(u.password.salt, 100), hash: s(u.password.hash, 100) },
       source };
   },
-  localUsers() { return (safeStorage.get(LOCAL_USERS_KEY) || []).map(u => Auth.clean(u, "local")).filter(Boolean); },
+  localUsers() {
+    const raw = safeStorage.get(LOCAL_USERS_KEY) || [];
+    // Accounts created before uIdKey existed get the next free key once.
+    if (raw.some(u => u && !UID_KEY_RE.test(String(u.uIdKey || "")))) {
+      raw.forEach(u => { if (u && !UID_KEY_RE.test(String(u.uIdKey || ""))) u.uIdKey = Auth.nextUidKey(raw); });
+      safeStorage.set(LOCAL_USERS_KEY, raw);
+    }
+    return raw.map(u => Auth.clean(u, "local")).filter(Boolean);
+  },
+  /** Next sequential primary key (uid_GE0001, uid_GE0002, …) across shared and browser accounts. */
+  nextUidKey(extraRaw) {
+    const nums = Auth.directory.concat(extraRaw || safeStorage.get(LOCAL_USERS_KEY) || [])
+      .map(u => /^uid_GE(\d+)$/.exec(String(u && u.uIdKey || ""))).filter(Boolean).map(m => Number(m[1]));
+    return "uid_GE" + String((nums.length ? Math.max(...nums) : 0) + 1).padStart(4, "0");
+  },
   saveLocalUsers(list) {
     const ok = safeStorage.set(LOCAL_USERS_KEY, list.map(({ source, ...u }) => u));
     if (!ok) throw new Error("This browser can't store new accounts (storage is blocked or full).");
   },
-  allUsers() { return Auth.directory.concat(Auth.localUsers().filter(l => !Auth.directory.some(d => d.userId === l.userId))); },
+  allUsers() { return Auth.directory.concat(Auth.localUsers().filter(l => !Auth.directory.some(d => d.uIdKey === l.uIdKey || d.userId === l.userId))); },
+  byKey(key) { return Auth.allUsers().find(u => u.uIdKey === key) || null; },
   find(login) { const l = norm(login); return Auth.allUsers().find(u => u.userId === l || u.email === l) || null; },
 
   async derive(password, saltBytes, iterations) {
@@ -1042,13 +1059,13 @@ const Auth = {
   start(u) {
     Auth.user = Object.assign({}, u, { roleName: ROLES[u.roleCode].name, role: ROLES[u.roleCode].name, roleKey: ROLES[u.roleCode].key, initials: initials(u.name) });
     delete Auth.user.password;
-    safeSession.set(SESSION_KEY, { userId: u.userId, roleCode: u.roleCode, expires: Date.now() + SESSION_HOURS * 3600000 });
+    safeSession.set(SESSION_KEY, { uIdKey: u.uIdKey, roleCode: u.roleCode, expires: Date.now() + SESSION_HOURS * 3600000 });
   },
   /** Restores a session from this tab, re-checking the account still exists, is active and has that role. */
   restore() {
     const s = safeSession.get(SESSION_KEY);
     if (!s || !(s.expires > Date.now())) { safeSession.remove(SESSION_KEY); return; }
-    const u = Auth.find(s.userId);
+    const u = Auth.byKey(s.uIdKey);
     if (u && u.status === "Active" && u.roleCode === s.roleCode) Auth.start(u); else safeSession.remove(SESSION_KEY);
   },
   signOut() { Auth.user = null; safeSession.remove(SESSION_KEY); },
@@ -1077,7 +1094,7 @@ const Auth = {
     if (!errs.regEmail && (Auth.find(email) || Auth.find(userId))) errs.regEmail = "An account with this email already exists. Sign in instead.";
     if (!errs.regEmp && Auth.allUsers().some(u => u.empId === empId)) errs.regEmp = "This Employee ID already has an account.";
     if (Object.keys(errs).length) return { errors: errs };
-    const user = { userId, name, email, empId, roleCode: role.code, department: f.department, grade: f.grade, designation: f.designation.trim().slice(0, 80),
+    const user = { uIdKey: Auth.nextUidKey(), userId, name, email, empId, roleCode: role.code, department: f.department, grade: f.grade, designation: f.designation.trim().slice(0, 80),
       tenureMonths: tenure, relExp: exp, education: "", status: role.code === "JP" ? "Pending" : "Active", createdAt: CONFIG.today,
       password: await Auth.hashPassword(f.password) };
     const list = Auth.localUsers();
@@ -2689,7 +2706,7 @@ const LoginView = {
         const u = res.user;
         LoginView.tab = "signin"; LoginView.role = u.roleCode; LoginView.prefill = u.userId;
         LoginView.notice = u.status === "Pending"
-          ? { type: "warn", text: `Account created for ${u.name} (user ID ${u.userId}). Job Poster accounts need Admin approval; you can sign in once an Admin approves it.` }
+          ? { type: "warn", text: `Account created for ${u.name} (user ID ${u.userId}, key ${u.uIdKey}). Job Poster accounts need Admin approval; you can sign in once an Admin approves it.` }
           : { type: "success", text: `Account created. Your user ID is ${u.userId}. Sign in to continue.` };
         render();
       });
@@ -2701,12 +2718,12 @@ STATUS_CLASS["Active"] = "b-success"; STATUS_CLASS["Disabled"] = "b-danger";
 /* Admin → User accounts: shared accounts (read-only) and accounts created in this browser. */
 const UsersAdmin = {
   render() {
-    const row = (u, actions) => `<tr><td><b>${esc(u.name)}</b><div class="small muted">${esc(u.designation || "")}</div></td>
+    const row = (u, actions) => `<tr><td class="mono small">${esc(u.uIdKey)}</td><td><b>${esc(u.name)}</b><div class="small muted">${esc(u.designation || "")}</div></td>
       <td class="mono small">${esc(u.userId)}<div class="muted">${esc(u.email)}</div></td><td class="mono small">${esc(u.empId)}</td>
       <td>${esc(ROLES[u.roleCode].name)} <span class="mono small muted">${esc(u.roleCode)}</span></td><td>${badge(u.status)}</td>${actions ? `<td>${actions}</td>` : ""}</tr>`;
-    const head = (extra) => `<thead><tr><th>Name</th><th>User ID / email</th><th>Employee ID</th><th>Role</th><th>Status</th>${extra ? "<th>Actions</th>" : ""}</tr></thead>`;
+    const head = (extra) => `<thead><tr><th>uIdKey</th><th>Name</th><th>User ID / email</th><th>Employee ID</th><th>Role</th><th>Status</th>${extra ? "<th>Actions</th>" : ""}</tr></thead>`;
     const local = Auth.localUsers();
-    const self = currentUser().userId;
+    const self = currentUser().uIdKey;
     return `<div class="card"><div class="card-head"><h3>Shared accounts <span class="small muted">data/users.json</span></h3>${Auth.state === "loaded" ? badge("Active") : badge("Disabled")}</div>
         ${Auth.state === "loaded" ? `<div class="table-wrap"><table>${head(false)}<tbody>${Auth.directory.map(u => row(u)).join("")}</tbody></table></div>
           <p class="hint" style="margin-top:.5rem">To add, change or disable a shared account, edit data/users.json in the repository (passwords must be hashed with <span class="mono">npm run hash-password</span>) and push.</p>`
@@ -2714,16 +2731,16 @@ const UsersAdmin = {
       <div class="card"><div class="card-head"><h3>Accounts created in this browser</h3>
           <button class="btn btn-sm" id="copyUsersJson" ${local.length ? "" : "disabled"}>Copy as users.json entries</button></div>
         ${local.length ? `<div class="table-wrap"><table>${head(true)}<tbody>${local.map(u => row(u, `<div class="btn-row" style="flex-wrap:nowrap">
-            ${u.status === "Pending" ? `<button class="btn btn-sm btn-success" data-user-act="approve" data-user="${esc(u.userId)}">Approve</button>` : ""}
-            ${u.status === "Active" && u.userId !== self ? `<button class="btn btn-sm btn-danger" data-user-act="disable" data-user="${esc(u.userId)}">Disable</button>` : ""}
-            ${u.status === "Disabled" ? `<button class="btn btn-sm" data-user-act="enable" data-user="${esc(u.userId)}">Enable</button>` : ""}
-            ${u.status !== "Active" ? `<button class="btn btn-sm btn-ghost" data-user-act="delete" data-user="${esc(u.userId)}">Delete</button>` : ""}</div>`)).join("")}</tbody></table></div>`
+            ${u.status === "Pending" ? `<button class="btn btn-sm btn-success" data-user-act="approve" data-user="${esc(u.uIdKey)}">Approve</button>` : ""}
+            ${u.status === "Active" && u.uIdKey !== self ? `<button class="btn btn-sm btn-danger" data-user-act="disable" data-user="${esc(u.uIdKey)}">Disable</button>` : ""}
+            ${u.status === "Disabled" ? `<button class="btn btn-sm" data-user-act="enable" data-user="${esc(u.uIdKey)}">Enable</button>` : ""}
+            ${u.status !== "Active" ? `<button class="btn btn-sm btn-ghost" data-user-act="delete" data-user="${esc(u.uIdKey)}">Delete</button>` : ""}</div>`)).join("")}</tbody></table></div>`
           : emptyState("No accounts created in this browser", "Accounts registered from the sign-in page on this browser appear here.")}
         <p class="hint" style="margin-top:.5rem">These accounts exist only in this browser. To make one available everywhere, copy it as JSON and add it to data/users.json.</p></div>`;
   },
   bind(root) {
     $$("[data-user-act]", root).forEach(b => b.addEventListener("click", () => {
-      const list = Auth.localUsers(), u = list.find(x => x.userId === b.dataset.user), act = b.dataset.userAct;
+      const list = Auth.localUsers(), u = list.find(x => x.uIdKey === b.dataset.user), act = b.dataset.userAct;
       if (!u) return;
       const apply = () => {
         if (act === "delete") list.splice(list.indexOf(u), 1);

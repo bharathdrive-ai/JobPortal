@@ -6,12 +6,12 @@ recorded here so testers can sign in. **This file is not deployed** (only
 `public/` is published), but it is visible to anyone who can read the repository.
 Do not reuse these passwords anywhere else, and replace them before any real use.
 
-| Role (code)       | Sign in with (user ID or email)          | Password       |
-|-------------------|------------------------------------------|----------------|
-| Job Seeker (JS)   | `sneha.kulkarni` / sneha.kulkarni@talenthub.example | `Seeker#2026!` |
-| Job Seeker (JS)   | `rohan.verma` / rohan.verma@talenthub.example       | `Seeker#2026!` |
-| Job Poster (JP)   | `priya.raman` / priya.raman@talenthub.example       | `Poster#2026!` |
-| Admin (AD)        | `arjun.mehta` / arjun.mehta@talenthub.example       | `Admin#2026!`  |
+| uIdKey     | Role (code)       | Sign in with (user ID or email)          | Password       |
+|------------|-------------------|------------------------------------------|----------------|
+| `uid_GE0001` | Job Seeker (JS)   | `sneha.kulkarni` / sneha.kulkarni@talenthub.example | `Seeker#2026!` |
+| `uid_GE0002` | Job Seeker (JS)   | `rohan.verma` / rohan.verma@talenthub.example       | `Seeker#2026!` |
+| `uid_GE0003` | Job Poster (JP)   | `priya.raman` / priya.raman@talenthub.example       | `Poster#2026!` |
+| `uid_GE0004` | Admin (AD)        | `arjun.mehta` / arjun.mehta@talenthub.example       | `Admin#2026!`  |
 
 ## Adding or changing an account
 
@@ -20,6 +20,8 @@ Do not reuse these passwords anywhere else, and replace them before any real use
    npm run hash-password -- "a-strong-password"
    ```
 2. Add (or update) the user in `data/users.json`, pasting the printed `password` object.
+   Every user needs a unique `uIdKey` (the primary key): use the next number in sequence,
+   e.g. `uid_GE0005`. Never change or reuse a key.
    Use a role code from the `roles` list: `JS`, `JP` or `AD`.
 3. Commit and push. The build validates the file and rejects plain-text passwords.
 
