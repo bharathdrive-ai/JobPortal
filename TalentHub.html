@@ -3,9 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>TalentHub – Internal Careers &amp; Resume Assessment</title>
+<title>TalentHub – Careers &amp; Resume Assessment</title>
 <!--
-  TalentHub – Internal Careers & Resume Assessment (PROTOTYPE)
+  TalentHub – Careers & Resume Assessment (PROTOTYPE)
   ------------------------------------------------------------
   Single-file prototype: HTML + CSS + vanilla JS, no external dependencies.
   All data is mock data held in memory and mirrored to localStorage.
@@ -379,7 +379,7 @@ body.signed-out .app{grid-template-columns:minmax(0,1fr)}
   <aside class="sidebar" id="sidebar" aria-label="Main navigation">
     <div class="brand">
       <div class="brand-logo" aria-hidden="true">TH</div>
-      <div><b>TalentHub</b><span>Internal Careers &amp; Resume Assessment</span></div>
+      <div><b>TalentHub</b><span>Careers &amp; Resume Assessment</span></div>
     </div>
     <ul class="nav" id="nav"></ul>
     <div class="sidebar-foot">
@@ -1581,7 +1581,7 @@ function employeeFacingStatus(a) {
 STATUS_CLASS["Not selected"] = "b-danger"; STATUS_CLASS["Awaiting manager approval"] = "b-warning";
 
 /* =====================================================================
-   SECTION J — MODULE: INTERNAL JOB POSTINGS (list, details, apply)
+   SECTION J — MODULE: JOB POSTINGS (list, details, apply)
    ===================================================================== */
 const jobFilters = { q: "", dept: "", status: "", mode: "", loc: "" };
 
@@ -1590,7 +1590,7 @@ VIEWS.jobs = {
     if (route.sub === "new" || route.sub === "edit") return JobForm.render(route);
     const emp = currentRole() === "employee";
     const L = DB.lookups;
-    return `<div class="page-head"><div><h1>Job Postings</h1><p>${emp ? "Explore open internal opportunities and apply." : "Create, publish and manage internal vacancies."}</p></div>
+    return `<div class="page-head"><div><h1>Job Postings</h1><p>${emp ? "Explore open jobs and apply." : "Create, publish and manage job vacancies."}</p></div>
       ${emp ? "" : '<a class="btn btn-primary" href="#/jobs/new">+ New Job Posting</a>'}</div>
       ${emp ? "" : feedNotice()}
       <div class="card">
@@ -2068,9 +2068,9 @@ VIEWS.myapps = {
   render() {
     const u = currentUser();
     const mine = api.listApps({ empId: u.empId });
-    const head = `<div class="page-head"><div><h1>My Applications</h1><p>Track internal applications submitted as ${esc(u.name)} (${esc(u.empId)}).</p></div>
+    const head = `<div class="page-head"><div><h1>My Applications</h1><p>Track the applications you've submitted as ${esc(u.name)} (${esc(u.empId)}).</p></div>
       <a class="btn btn-primary" href="#/jobs">Browse open roles</a></div>`;
-    if (!mine.length) return head + `<div class="card">${emptyState("You haven't applied to any internal roles yet",
+    if (!mine.length) return head + `<div class="card">${emptyState("You haven't applied to any jobs yet",
       "Browse open positions and apply to track your applications here.",
       '<a class="btn btn-primary" href="#/jobs">Browse jobs</a>')}</div>`;
     return head + mine.map(a => {
@@ -2088,7 +2088,7 @@ VIEWS.myapps = {
         ${a.decision === "Rejected" ? `<p class="small" style="margin-top:.6rem">Thank you for your interest. Your recruiter can share feedback on request.</p>` : ""}
         <div class="btn-row" style="margin-top:.6rem"><button class="btn btn-sm" data-view-job="${esc(a.jobId)}">View job</button>
           ${!a.decision ? `<button class="btn btn-sm btn-danger" data-withdraw="${esc(a.id)}">Withdraw application</button>` : ""}</div></div>`;
-    }).join("") + `<p class="hint" style="margin-top:1rem">Internal assessment scores and reviewer comments are not shown to applicants.</p>`;
+    }).join("") + `<p class="hint" style="margin-top:1rem">Assessment scores and reviewer comments are not shown to applicants.</p>`;
   },
   bind(route, root) {
     bindJobViewButtons(root);
@@ -2648,7 +2648,7 @@ VIEWS.reports = {
     const u = currentUser();
     return `<div class="print-only" style="border-bottom:2px solid var(--primary);padding-bottom:.5rem;margin-bottom:.8rem">
         <div style="display:flex;justify-content:space-between;gap:1rem;align-items:flex-end"><div><div style="font-size:1.3rem;font-weight:700">TalentHub · Reports &amp; Analytics</div>
-          <div class="small muted">Internal Careers &amp; Resume Assessment</div></div>
+          <div class="small muted">Careers &amp; Resume Assessment</div></div>
           <div class="small" style="text-align:right">Generated ${esc(new Date().toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }))}<br>by ${esc(u.name)} (${esc(u.roleName)})</div></div>
         <div class="small muted" style="margin-top:.3rem">Job postings source: job-postings.xlsx${FEED.version ? ` (version ${esc(FEED.version)})` : ""} · Prototype with sample data · Scores are decision support, not hiring decisions.</div></div>
       <div class="page-head"><div><h1>Reports &amp; Analytics</h1><p>Internal mobility and assessment metrics (sample data).</p></div>
@@ -2823,7 +2823,7 @@ const LoginView = {
       : `<div class="notice notice-info small"><b>Demo mode:</b> no sign-in server was found, so accounts are checked in this browser.${Auth.state === "unavailable" ? " " + esc(Auth.message) + " Accounts created in this browser still work." : ""}</div>`;
     return `<div class="auth-wrap"><div class="auth-card ${t === "register" ? "wide" : ""}">
       <div class="auth-head"><div class="brand-row"><div class="brand-logo" aria-hidden="true">TH</div><div style="flex:1;min-width:0"><h1>TalentHub</h1>
-        <p>Internal Careers &amp; Resume Assessment</p></div>${themeSwitchHtml("themeLogin")}</div>
+        <p>Careers &amp; Resume Assessment</p></div>${themeSwitchHtml("themeLogin")}</div>
         <ul class="values-list" aria-label="Our growth values">${GROWTH_VALUES.map(w => `<li class="values-word">${esc(w)}</li>`).join("")}</ul>
         <p class="values-tagline" style="text-align:left;font-size:.9rem">“Aspire to Grow. Empower Your Future.”</p></div>
       <div class="auth-tabs" role="tablist">
@@ -2875,7 +2875,7 @@ const LoginView = {
         ${field("regPw2", "Confirm password", `<input id="regPw2" class="input" type="password" autocomplete="new-password" maxlength="200">`)}
       </div>
       <label class="small" style="display:flex;gap:.4rem;align-items:flex-start"><input type="checkbox" id="regConsent">
-        <span>I confirm these details are accurate and agree that HR may use them to manage my internal applications.</span></label>
+        <span>I confirm these details are accurate and agree that HR may use them to manage my job applications.</span></label>
       <div class="err" data-reg-err="regConsent"></div>
       <button class="btn btn-primary" type="submit" id="regSubmit">Create account</button>
       <p class="auth-foot">New accounts are saved in this browser. An Admin can add them to the shared accounts file (data/users.json).</p>
