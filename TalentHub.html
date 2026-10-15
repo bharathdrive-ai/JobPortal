@@ -383,8 +383,8 @@ body.signed-out .app{grid-template-columns:minmax(0,1fr)}
     </div>
     <ul class="nav" id="nav"></ul>
     <div class="sidebar-foot">
-      Prototype build · mock data only<br>
-      Data is stored in this browser's localStorage.<br>
+      <span id="modeFoot">Prototype build · mock data only<br>
+      Data is stored in this browser's localStorage.</span><br>
       <a href="privacy.html" style="color:inherit">Privacy policy</a>
     </div>
   </aside>
@@ -406,7 +406,7 @@ body.signed-out .app{grid-template-columns:minmax(0,1fr)}
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>
         <span class="hide-sm">Sign out</span></button>
     </header>
-    <div class="proto-banner" role="note">
+    <div class="proto-banner" role="note" id="modeBanner">
       <b>Prototype:</b> mock data, no backend. Sign-in runs in the browser for demonstration and is not real authentication. Resume files are validated for type/size only —
       text extraction and automated scoring are <b>not implemented</b>; scores shown are sample reviewer-entered values.
     </div>
@@ -839,6 +839,11 @@ function resumeLink(a) {
   const name = a.resumeFile || "(not provided)";
   if (!AppsRemote.enabled || !a.resumeFileId) return esc(name);
   return `<a href="api/resumes/file?app=${encodeURIComponent(a.id)}" target="_blank" rel="noopener" title="Open the resume">${esc(name)}</a>`;
+}
+/** A small "Resume" button for table rows; empty when there's no stored file to open. */
+function resumeButton(a) {
+  if (!AppsRemote.enabled || !a.resumeFileId) return "";
+  return `<a class="btn btn-sm" href="api/resumes/file?app=${encodeURIComponent(a.id)}" target="_blank" rel="noopener" title="Open ${esc(a.name)}'s resume">Resume</a>`;
 }
 /** What happens to a chosen resume file, for the hints under the pickers. */
 function resumeStorageNote() {
@@ -1433,6 +1438,12 @@ function renderNav() {
       ${icon(m.icon)}<span>${esc(m.label)}</span></button></li>`).join("");
   const u = currentUser();
   $("#userName").textContent = u.name; $("#userRole").textContent = `${u.roleName} · ${u.roleCode}`; $("#userAvatar").textContent = u.initials;
+  if (AppsRemote.enabled) {
+    // Connected portal: sign-in, applications and resume files are real, so say so instead of "prototype".
+    $("#modeBanner").innerHTML = `Sign-in is checked on the server. Applications are kept in the shared TalentHub register and resume files in Google Drive.
+      Resume text isn't extracted or scored automatically: reviewers enter skills, evidence and scores.`;
+    $("#modeFoot").innerHTML = "Connected to Google Drive<br>Other settings are kept in this browser.";
+  }
 }
 
 function render() {
@@ -2669,7 +2680,7 @@ function drawEvalTable(job) {
       <td>${esc(a.relExp)} yrs</td><td>${scorePill(a)}${below ? '<div class="small" style="color:var(--warning)">Below threshold</div>' : ""}</td>
       <td>${badge(a.assessStatus)}</td><td>${a.decision ? badge(a.decision) : '<span class="muted small">Pending</span>'}</td>
       <td class="small" style="max-width:240px">${esc((a.comments || "—").slice(0, 110))}${(a.comments || "").length > 110 ? "…" : ""}</td>
-      <td><div class="btn-row" style="flex-wrap:nowrap"><button class="btn btn-sm" data-card="${esc(a.id)}">Scorecard</button>
+      <td><div class="btn-row" style="flex-wrap:nowrap"><button class="btn btn-sm" data-card="${esc(a.id)}">Scorecard</button>${resumeButton(a)}
         ${closed ? "" : `<button class="btn btn-sm btn-success" data-dec="Shortlisted" data-id="${esc(a.id)}" title="Shortlist">Shortlist</button>
         <button class="btn btn-sm btn-warning" data-dec="On Hold" data-id="${esc(a.id)}" title="Hold">Hold</button>
         <button class="btn btn-sm btn-danger" data-dec="Rejected" data-id="${esc(a.id)}" title="Reject">Reject</button>`}</div></td></tr>`; }).join("")}
@@ -2722,7 +2733,7 @@ function openScorecard(appId) {
       <div><dl class="kv"><dt>Employee ID</dt><dd class="mono">${esc(a.empId)}</dd><dt>Designation</dt><dd>${esc(a.designation)}</dd>
           <dt>Department / grade</dt><dd>${esc(a.dept)} · ${esc(a.grade)}</dd><dt>Relevant experience</dt><dd>${esc(a.relExp)} years</dd>
           <dt>Education</dt><dd>${esc(a.education)}</dd><dt>Certifications</dt><dd>${esc((a.certs || []).join(", ") || "—")}</dd>
-          <dt>Position</dt><dd>${esc(job.title)}</dd><dt>Manager approval</dt><dd>${badge(a.mgrApprovalStatus)}</dd>
+          <dt>Position</dt><dd>${esc(job.title)}</dd><dt>Resume</dt><dd>${resumeLink(a)}</dd><dt>Manager approval</dt><dd>${badge(a.mgrApprovalStatus)}</dd>
           <dt>Status</dt><dd>${badge(a.assessStatus)} ${a.decision ? badge(a.decision) : ""}</dd></dl></div>
       <div style="text-align:center"><div style="display:flex;justify-content:center"><div class="score-ring" style="--p:${fin || 0};--c:${b.color}"><div><span><b>${scoring.fmt(fin)}</b><br><small>out of 100</small></span></div></div></div>
         <span class="badge ${b.cls}">${esc(b.label)}</span>
@@ -2771,7 +2782,7 @@ function openCompare(job) {
     body: `<div class="table-wrap"><table><thead><tr><th>Attribute</th>${list.map(a => `<th style="text-transform:none">${esc(a.name)}</th>`).join("")}</tr></thead><tbody>
       ${row("Resume score", a => { const s = scoring.final(a, job); return scorePill(a) + (s === best && s >= 0 ? ' <span class="small">★ highest</span>' : ""); })}
       ${row("Current designation", a => esc(a.designation))}${row("Department / grade", a => esc(a.dept + " · " + a.grade))}
-      ${row("Relevant experience", a => esc(a.relExp) + " yrs")}
+      ${row("Relevant experience", a => esc(a.relExp) + " yrs")}${row("Resume", a => resumeLink(a))}
       ${job.weights.map(c => row(`${c.name} (${c.weight}%)`, a => a.criteria && a.criteria[c.key] && a.criteria[c.key].score !== "" ? esc(a.criteria[c.key].score) : "—")).join("")}
       ${row("Required-skill coverage", a => scoring.skillMatch(a, job).coverage + "%")}
       ${row("Missing / unverified", a => scoring.skillMatch(a, job).missing.length)}
@@ -2803,7 +2814,7 @@ VIEWS.approvals = {
       body = pendApps.length ? `<div class="table-wrap"><table><thead><tr><th>Employee</th><th>Current role</th><th>Applied for</th><th>Applied</th><th>Actions</th></tr></thead><tbody>
         ${pendApps.map(a => `<tr><td><b>${esc(a.name)}</b><div class="mono small muted">${esc(a.empId)}</div></td><td>${esc(a.designation)} · ${esc(a.dept)}</td>
           <td>${esc(jobTitle(a.jobId))}</td><td>${fmtDate(a.appliedAt)}</td>
-          <td><div class="btn-row" style="flex-wrap:nowrap"><button class="btn btn-sm btn-success" data-approve-app="${esc(a.id)}" ${canAct ? "" : "disabled"}>Approve</button>
+          <td><div class="btn-row" style="flex-wrap:nowrap">${resumeButton(a)}<button class="btn btn-sm btn-success" data-approve-app="${esc(a.id)}" ${canAct ? "" : "disabled"}>Approve</button>
             <button class="btn btn-sm btn-danger" data-decline-app="${esc(a.id)}" ${canAct ? "" : "disabled"}>Decline</button></div></td></tr>`).join("")}</tbody></table></div>`
         : emptyState("No manager approvals pending", "Applications needing current-manager approval will appear here.");
     } else if (approvalsTab === "pipeline") {
@@ -2962,7 +2973,9 @@ VIEWS.admin = {
         <div class="card"><h3>${esc(l)}</h3><div>${L[k].map((v, i) => `<span class="chip">${esc(v)} <button class="btn btn-ghost btn-sm" style="padding:0 .2rem" data-del-lk="${k}" data-i="${i}" aria-label="Remove ${esc(v)}">✕</button></span>`).join("")}</div>
           <div style="display:flex;gap:.4rem;margin-top:.6rem"><input class="input" data-new-lk="${k}" placeholder="Add new…" maxlength="60" aria-label="New ${esc(l)} value"><button class="btn btn-sm" data-add-lk="${k}">Add</button></div></div>`).join("")}</div>`;
     } else if (adminTab === "access") {
-      body = `<div class="notice notice-warn">Prototype: role checks run in the browser for demonstration. Production must enforce authorization on the server (SSO + RBAC, record-level access to resumes).</div>
+      body = `${AppsRemote.enabled
+        ? `<div class="notice">The server enforces these rules for sign-in, applications and resume files: Job Seekers see only their own applications and resumes; Job Posters and Admins see all.</div>`
+        : `<div class="notice notice-warn">Prototype: role checks run in the browser for demonstration. Production must enforce authorization on the server (SSO + RBAC, record-level access to resumes).</div>`}
         <div class="table-wrap"><table><thead><tr><th>Module</th>${Object.values(ROLES).map(r => `<th>${esc(r.name)} (${r.code})</th>`).join("")}</tr></thead><tbody>
         ${MODULES.map(m => `<tr><td>${esc(m.label)}</td>${Object.values(ROLES).map(r => r.key).map(r => `<td>${m.roles.includes(r) ? '<span class="badge b-success">Allowed</span>' : '<span class="badge b-danger">Restricted</span>'}</td>`).join("")}</tr>`).join("")}
         <tr><td>Approve postings / manager approvals</td><td><span class="badge b-danger">Restricted</span></td><td><span class="badge b-danger">Restricted</span></td><td><span class="badge b-success">Allowed</span></td></tr>
