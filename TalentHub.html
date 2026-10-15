@@ -1760,16 +1760,74 @@ function eligibilityHtml(j) {
     `<li><span aria-hidden="true">${c.ok ? "✅" : "⚠️"}</span><span>${esc(c.label)} — ${c.ok ? "eligible" : "not eligible"}</span></li>`).join("")}</ul></div>`;
 }
 
-/** Validates a selected resume file: extension, MIME type and size. Content is NOT parsed. */
-function validateResumeFile(file) {
-  if (!file) return "Please select a resume file.";
-  const ext = (file.name.split(".").pop() || "").toLowerCase();
-  if (!CONFIG.allowedResumeExt.includes(ext)) return "Only PDF or DOCX files are accepted.";
-  if (file.type && !CONFIG.allowedResumeMime.includes(file.type)) return "File type does not match a PDF or DOCX document.";
-  if (file.size === 0) return "The selected file is empty.";
-  if (file.size > CONFIG.maxResumeBytes) return "File exceeds the 5 MB limit.";
+/** Reads the start of the file to confirm what it really is. Browsers report file types
+    inconsistently (Windows often reports .docx as "application/octet-stream"), so the
+    contents are checked instead: a PDF starts with "%PDF-"; a Word .docx is a zip package
+    that contains word/document.xml. Returns "pdf", "docx" or "". */
+async function sniffResume(file) {
+  const head = new Uint8Array(await file.slice(0, 8).arrayBuffer());
+  if (String.fromCharCode(...head.slice(0, 5)) === "%PDF-") return "pdf";
+  if (head[0] === 0x50 && head[1] === 0x4B && head[2] === 0x03 && head[3] === 0x04) {
+    const text = new TextDecoder("latin1").decode(await file.arrayBuffer());   // ≤ 5 MB, size checked first
+    return text.includes("word/document.xml") ? "docx" : "";
+  }
   return "";
 }
+
+/** Validates a resume file: extension, size and actual contents. Returns "" when OK. */
+async function validateResumeFile(file) {
+  if (!file) return "Please choose your resume file.";
+  const ext = (file.name.split(".").pop() || "").toLowerCase();
+  if (ext === "doc") return "Older Word .doc files aren't accepted. In Word, use File → Save As and choose Word Document (.docx) or PDF.";
+  if (!CONFIG.allowedResumeExt.includes(ext)) return "Choose a PDF or a Word (.docx) file.";
+  if (file.size === 0) return "That file is empty. Choose your saved resume.";
+  if (file.size > CONFIG.maxResumeBytes) return `That file is ${(file.size / 1048576).toFixed(1)} MB; the limit is 5 MB. Try saving a smaller copy, for example with fewer or smaller images.`;
+  let kind = "";
+  try { kind = await sniffResume(file); } catch (e) { return "That file couldn't be read. Close it in other programs and try again."; }
+  if (kind !== ext) return ext === "pdf" ? "That file isn't a valid PDF. Try exporting your resume to PDF again."
+    : "That file isn't a valid Word .docx document. Try saving it again as .docx or PDF.";
+  return "";
+}
+
+/** Shared resume picker: click, keyboard or drag-and-drop, checked as soon as a file is chosen. */
+function resumePickerHtml(id, required) {
+  return `<div class="field"><span class="lbl ${required ? "req" : ""}" id="${id}Lbl">Resume</span>
+    <div class="dropzone" id="${id}Zone" tabindex="0" role="button" aria-labelledby="${id}Lbl" aria-describedby="${id}Info">
+      ${icon("M12 16V4M7 9l5-5 5 5M4 20h16", 26)}
+      <div><b>Drag your resume here, or click to choose a file</b></div>
+      <div class="hint">PDF or Word (.docx) · up to 5 MB</div>
+      <input type="file" id="${id}" accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" hidden></div>
+    <div id="${id}Info" class="small" aria-live="polite" style="margin-top:.4rem"></div></div>`;
+}
+/** Wires a picker. Returns state: .file is the accepted file (or null), .checking while a check runs. */
+function bindResumePicker(root, id) {
+  const state = { file: null, checking: false, error: "" };
+  const zone = $("#" + id + "Zone", root), input = $("#" + id, root), info = $("#" + id + "Info", root);
+  const take = async (file) => {
+    if (!file) return;
+    state.file = null; state.error = ""; state.checking = true;
+    info.innerHTML = `<span class="muted">Checking ${esc(file.name)}…</span>`;
+    const err = await validateResumeFile(file);
+    state.checking = false;
+    zone.classList.remove("drag");
+    if (err) { state.error = err; info.innerHTML = `<span style="color:var(--danger)">✕ ${esc(err)}</span>`; zone.setAttribute("aria-invalid", "true"); return; }
+    state.file = file; zone.removeAttribute("aria-invalid");
+    info.innerHTML = `<span style="color:var(--success)">✓</span> <b>${esc(file.name)}</b> <span class="muted">(${Math.max(1, Math.round(file.size / 1024))} KB) · ready</span>
+      <button type="button" class="btn btn-ghost btn-sm" data-pick-again>Choose a different file</button>`;
+    const again = $("[data-pick-again]", info); if (again) again.addEventListener("click", () => input.click());
+  };
+  zone.addEventListener("click", () => input.click());
+  zone.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); input.click(); } });
+  input.addEventListener("change", () => { take(input.files[0]); input.value = ""; });
+  zone.addEventListener("dragover", (e) => { e.preventDefault(); zone.classList.add("drag"); });
+  zone.addEventListener("dragleave", () => zone.classList.remove("drag"));
+  zone.addEventListener("drop", (e) => { e.preventDefault(); zone.classList.remove("drag"); take(e.dataTransfer.files[0]); });
+  state.take = take;
+  return state;
+}
+
+/** Plain statement of what happens to the file in this version (no server storage yet). */
+const RESUME_STORAGE_NOTE = "The file is checked here and its name is saved with your application. Storing the file itself for recruiters to open is being added with the Google Drive connection.";
 
 function openApplyDialog(jobId) {
   const j = api.getJob(jobId);
@@ -1783,24 +1841,27 @@ function openApplyDialog(jobId) {
     body: `${eligibilityHtml(j)}
       ${eligible ? "" : '<div class="notice notice-warn" style="margin-top:.8rem">You do not meet all eligibility criteria. You may still apply; HR will review eligibility.</div>'}
       <form id="applyForm" novalidate style="margin-top:1rem">
-        <div class="field"><label class="${j.resumeRequired === "Mandatory" ? "req" : ""}" for="apFile">Resume (PDF or DOCX, max 5 MB)</label>
-          <input id="apFile" type="file" class="input" accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document">
-          <div class="err" id="apFileErr"></div></div>
+        ${resumePickerHtml("apFile", j.resumeRequired === "Mandatory")}
+        <div class="err" id="apFileErr"></div>
+        <p class="hint" style="margin:.3rem 0 0">${j.resumeRequired === "Mandatory" ? "A resume is required for this job." : "A resume is optional for this job; you can add one later from My Applications."} ${esc(RESUME_STORAGE_NOTE)}</p>
         <div class="field" style="margin-top:.8rem"><label for="apNote">Why are you interested? (optional)</label>
           <textarea id="apNote" class="input" maxlength="1000"></textarea></div>
         <p class="hint">${j.mgrApproval === "Notify only" ? "Your manager will be notified." : `Manager approval: ${esc(j.mgrApproval.toLowerCase())}.`}
-          Only the recruiter and hiring manager for this role can view your resume.</p>
+          Your application is visible only to the recruiter, hiring manager and Admins for this role.</p>
         <label class="small" style="display:flex;gap:.4rem;align-items:flex-start"><input type="checkbox" id="apConsent">
           <span>I confirm the information is accurate and consent to my resume being reviewed for this role.</span></label>
         <div class="err" id="apConsentErr"></div>
       </form>`,
     foot: `<button class="btn" data-close>Cancel</button><button class="btn btn-primary" id="apSubmit">Submit application</button>`,
     onOpen(root) {
+      const picker = bindResumePicker(root, "apFile");
       $("#apSubmit", root).addEventListener("click", () => {
-        const file = $("#apFile", root).files[0];
+        if (picker.checking) { toast("Still checking your resume file. Try again in a moment.", "warn"); return; }
+        const file = picker.file;
         let ok = true;
-        const fErr = (file || j.resumeRequired === "Mandatory") ? validateResumeFile(file) : "";
-        $("#apFileErr", root).textContent = fErr; $("#apFile", root).setAttribute("aria-invalid", fErr ? "true" : "false");
+        const fErr = picker.error ? "Choose a valid resume file (see the message above)."
+          : (!file && j.resumeRequired === "Mandatory" ? "Please add your resume. It's required for this job." : "");
+        $("#apFileErr", root).textContent = fErr;
         if (fErr) ok = false;
         const consent = $("#apConsent", root).checked;
         $("#apConsentErr", root).textContent = consent ? "" : "Please confirm to continue.";
@@ -1808,7 +1869,8 @@ function openApplyDialog(jobId) {
         if (!ok) return;
         const p = employeeProfile();
         api.createApp({ jobId, name: u.name, empId: u.empId, dept: p.dept, designation: p.designation, grade: p.grade, tenureMonths: p.tenureMonths,
-          relExp: p.relExp, skills: [], education: p.education, certs: [], resumeFile: file ? file.name : "(not provided)", appliedAt: CONFIG.today,
+          relExp: p.relExp, skills: [], education: p.education, certs: [], resumeFile: file ? file.name : "(not provided)",
+          resumeSize: file ? file.size : 0, resumeUpdatedAt: file ? nowStamp() : "", appliedAt: CONFIG.today,
           mgrApprovalStatus: j.mgrApproval === "Notify only" ? "Not required" : "Pending", assessStatus: "Pending Assessment",
           decision: null, decisionReason: "", comments: "", override: null, criteria: null, note: $("#apNote", root).value.trim() });
         api.logActivity(`${u.name} applied to ${j.title}`, "apply");
@@ -2064,6 +2126,33 @@ const JobForm = {
 /* =====================================================================
    SECTION L — MODULE: MY APPLICATIONS
    ===================================================================== */
+/** Lets a Job Seeker add or replace the resume on one of their open applications. */
+function openResumeDialog(appId) {
+  const a = api.getApp(appId), u = currentUser();
+  if (!a || a.empId !== u.empId) { toast("That application isn't yours.", "error"); return; }
+  if (a.decision) { toast("This application already has an outcome, so its resume can't be changed.", "warn"); return; }
+  const hasResume = a.resumeFile && a.resumeFile !== "(not provided)";
+  modal.open({
+    title: (hasResume ? "Update resume – " : "Add resume – ") + jobTitle(a.jobId), size: "narrow",
+    body: `${hasResume ? `<p class="small">Current file: <b>${esc(a.resumeFile)}</b>${a.resumeUpdatedAt ? ` (added ${fmtDate(a.resumeUpdatedAt)})` : ""}. The new file replaces it.</p>` : ""}
+      ${resumePickerHtml("upFile", true)}<div class="err" id="upFileErr"></div>
+      <p class="hint" style="margin-top:.4rem">${esc(RESUME_STORAGE_NOTE)}</p>`,
+    foot: `<button class="btn" data-close>Cancel</button><button class="btn btn-primary" id="upSave">${hasResume ? "Replace resume" : "Add resume"}</button>`,
+    onOpen(root) {
+      const picker = bindResumePicker(root, "upFile");
+      $("#upSave", root).addEventListener("click", () => {
+        if (picker.checking) { toast("Still checking your resume file. Try again in a moment.", "warn"); return; }
+        if (!picker.file) { $("#upFileErr", root).textContent = picker.error ? "Choose a valid resume file (see the message above)." : "Choose your resume file first."; return; }
+        api.updateApp(a.id, { resumeFile: picker.file.name, resumeSize: picker.file.size, resumeUpdatedAt: nowStamp() });
+        api.logActivity(`${u.name} ${hasResume ? "updated" : "added"} their resume for ${jobTitle(a.jobId)}`, "apply");
+        modal.close();
+        toast(hasResume ? "Resume updated." : "Resume added.", "success");
+        render();
+      });
+    },
+  });
+}
+
 VIEWS.myapps = {
   render() {
     const u = currentUser();
@@ -2082,16 +2171,24 @@ VIEWS.myapps = {
         { l: "Resume review", done: !!a.decision || a.assessStatus === "Assessed", cur: a.mgrApprovalStatus !== "Pending" && !a.decision },
         { l: "Outcome", done: !!a.decision, cur: false },
       ];
+      const hasResume = a.resumeFile && a.resumeFile !== "(not provided)";
+      const open = !a.decision;   // resume can be added or replaced until there's an outcome
       return `<div class="card"><div class="card-head"><div><h3>${esc(j.title)}</h3>
-          <div class="small muted"><span class="mono">${esc(a.id)}</span> · ${esc(a.jobId)} · Applied ${fmtDate(a.appliedAt)} · Resume: ${esc(a.resumeFile)}</div></div>${badge(st)}</div>
+          <div class="small muted"><span class="mono">${esc(a.id)}</span> · ${esc(a.jobId)} · Applied ${fmtDate(a.appliedAt)}</div></div>${badge(st)}</div>
         <div class="steps">${steps.map(s => `<div class="step ${s.done ? "done" : s.cur ? "current" : ""}">${esc(s.l)}</div>`).join("")}</div>
+        <div class="small" style="display:flex;flex-wrap:wrap;gap:.4rem .8rem;align-items:center;margin-top:.7rem">
+          ${icon("M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9zM14 3v6h6", 16)}
+          ${hasResume ? `<span>Resume: <b>${esc(a.resumeFile)}</b>${a.resumeUpdatedAt ? ` <span class="muted">· added ${fmtDate(a.resumeUpdatedAt)}</span>` : ""}</span>`
+            : `<span class="muted">No resume added yet${j.resumeRequired === "Mandatory" ? " (this job requires one)" : ""}</span>`}
+          ${open ? `<button class="btn btn-sm ${hasResume ? "" : "btn-primary"}" data-resume="${esc(a.id)}">${hasResume ? "Update resume" : "Add resume"}</button>` : ""}</div>
         ${a.decision === "Rejected" ? `<p class="small" style="margin-top:.6rem">Thank you for your interest. Your recruiter can share feedback on request.</p>` : ""}
         <div class="btn-row" style="margin-top:.6rem"><button class="btn btn-sm" data-view-job="${esc(a.jobId)}">View job</button>
-          ${!a.decision ? `<button class="btn btn-sm btn-danger" data-withdraw="${esc(a.id)}">Withdraw application</button>` : ""}</div></div>`;
+          ${open ? `<button class="btn btn-sm btn-danger" data-withdraw="${esc(a.id)}">Withdraw application</button>` : ""}</div></div>`;
     }).join("") + `<p class="hint" style="margin-top:1rem">Assessment scores and reviewer comments are not shown to applicants.</p>`;
   },
   bind(route, root) {
     bindJobViewButtons(root);
+    $$("[data-resume]", root).forEach(b => b.addEventListener("click", () => openResumeDialog(b.dataset.resume)));
     $$("[data-withdraw]", root).forEach(b => b.addEventListener("click", () => {
       const a = api.getApp(b.dataset.withdraw);
       confirmDialog({ title: "Withdraw application", message: `Withdraw your application for “${jobTitle(a.jobId)}”? This cannot be undone.`,
@@ -2309,8 +2406,10 @@ function bindAssessmentWork(job) {
   $("#ovScore", host).addEventListener("input", () => updateRing(job));
   // File picker (validation only)
   const dz = $("#dz", host), fi = $("#asFile", host);
-  const handle = (file) => {
-    const err = validateResumeFile(file);
+  const handle = async (file) => {
+    if (!file) return;
+    $("#fileInfo", host).innerHTML = `<span class="muted">Checking ${esc(file.name)}…</span>`;
+    const err = await validateResumeFile(file);
     if (err) { $("#fileInfo", host).innerHTML = `<span style="color:var(--danger)">✕ ${esc(err)}</span>`; AS.file = null; return; }
     AS.file = file;
     $("#fileInfo", host).innerHTML = `✓ <b>${esc(file.name)}</b> (${(file.size / 1024).toFixed(0)} KB) validated. It will be recorded as this candidate's resume when you save.
