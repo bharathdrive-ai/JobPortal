@@ -333,10 +333,28 @@ body.signed-out .app{grid-template-columns:minmax(0,1fr)}
   .kv{grid-template-columns:1fr}
   .kv dt{margin-top:.4rem}
   .user-chip .name{display:none}
-  .topbar .title{display:none}
-  .topbar{justify-content:flex-end}
+  .topbar{gap:.5rem}
+  .topbar .title{font-size:.95rem}
   .bar-row{grid-template-columns:90px 1fr 36px}
+  .proto-banner{font-size:.72rem;line-height:1.35}
+  .step{min-width:0;font-size:.68rem;padding-inline:.15rem}
 }
+/* Phones: list tables become one card per row, each cell labelled with its column heading
+   (labels are copied from the header by labelStackTables). */
+@media (max-width:640px){
+  table.stack thead{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+  table.stack, table.stack tbody, table.stack tr{display:block;width:auto}
+  table.stack tr{padding:.65rem .85rem;border-bottom:1px solid var(--border)}
+  table.stack tbody tr:last-child{border-bottom:0}
+  /* Label in column 1 spanning every line of the cell; the cell's own content stacks in column 2. */
+  table.stack td{display:grid;grid-template-columns:34% minmax(0,1fr);column-gap:.6rem;justify-items:start;align-items:start;padding:.28rem 0;border:0;max-width:none !important;overflow-wrap:anywhere}
+  table.stack td::before{content:attr(data-label);grid-column:1;grid-row:1/span 20;padding-top:.14rem;font-size:.7rem;line-height:1.25;text-transform:uppercase;letter-spacing:.03em;color:var(--text-3);font-weight:600}
+  table.stack td[data-label=""]{display:block;padding:.5rem 0 0}
+  table.stack td[data-label=""]::before{content:none}
+  table.stack .btn-row{flex-wrap:wrap !important}
+}
+/* Touch screens: comfortable tap targets for the small theme buttons. */
+@media (pointer:coarse){.theme-switch label{padding:.5rem .6rem}}
 
 /* ============ 6. PRINT / SAVE AS PDF ============ */
 @media print{
@@ -1438,17 +1456,28 @@ function renderNav() {
       ${icon(m.icon)}<span>${esc(m.label)}</span></button></li>`).join("");
   const u = currentUser();
   $("#userName").textContent = u.name; $("#userRole").textContent = `${u.roleName} · ${u.roleCode}`; $("#userAvatar").textContent = u.initials;
-  if (AppsRemote.enabled) {
-    // Connected portal: sign-in, applications and resume files are real, so say so instead of "prototype".
-    $("#modeBanner").innerHTML = `Sign-in is checked on the server. Applications are kept in the shared TalentHub register and resume files in Google Drive.
-      Resume text isn't extracted or scored automatically: reviewers enter skills, evidence and scores.`;
-    $("#modeFoot").innerHTML = "Connected to Google Drive<br>Other settings are kept in this browser.";
-  }
 }
+
+/** Connected portal (server sign-in + Google): replace the "prototype" notes with what is really true. */
+function updateModeNotes() {
+  if (Auth.mode !== "server" || !(Auth.features && Auth.features.googleConnected)) return;
+  $("#modeBanner").innerHTML = "Connected: sign-in is checked on the server, applications are kept in the shared register and resumes in Google Drive. Reviewers enter scores; resumes aren't scored automatically.";
+  $("#modeFoot").innerHTML = "Connected to Google Drive<br>Other settings are kept in this browser.";
+}
+/** Copies each list table's column headings onto its cells, so phones can show rows as labelled cards (CSS: table.stack). */
+function labelStackTables(root = document) {
+  $$("table.stack", root).forEach(t => {
+    const heads = $$("thead th", t).map(th => th.textContent.trim());
+    $$("tbody tr", t).forEach(tr => { let col = 0;
+      [...tr.children].forEach(td => { td.dataset.label = td.colSpan > 1 ? "" : (heads[col] || ""); col += td.colSpan || 1; }); });
+  });
+}
+new MutationObserver(() => labelStackTables()).observe(document.body, { childList: true, subtree: true });
 
 function render() {
   const route = parseRoute();
   const mod = MODULES.find(m => m.id === route.module);
+  updateModeNotes();
   closeSidebar();
   if (modal.isOpen()) modal.close();
   const view = $("#view");
@@ -1751,7 +1780,7 @@ function jobsTableHtml() {
   const emp = currentRole() === "employee";
   if (!list.length) return emptyState("No job postings match your filters", "Try a different keyword or clear the filters.");
   return `<p class="small muted" aria-live="polite">${list.length} posting${list.length === 1 ? "" : "s"} found</p>
-  <div class="table-wrap"><table><thead><tr><th>Job ID</th><th>Title</th><th>Department</th><th>Grade</th><th>Location / Mode</th><th>Closes</th>
+  <div class="table-wrap"><table class="stack"><thead><tr><th>Job ID</th><th>Title</th><th>Department</th><th>Grade</th><th>Location / Mode</th><th>Closes</th>
     ${emp ? "" : "<th>Applicants</th><th>Status</th>"}<th><span class="sr-only">Actions</span></th></tr></thead><tbody>
     ${list.map(j => {
       const n = api.listApps({ jobId: j.id }).length;
@@ -2350,8 +2379,11 @@ VIEWS.assessment = {
     const byJob = {};
     apps.forEach(a => (byJob[a.jobId] = byJob[a.jobId] || []).push(a));
     return `<div class="page-head"><div><h1>Resume Assessment</h1><p>Review a candidate's resume against the job's weighted criteria. Every score must cite resume evidence.</p></div></div>
-      <div class="notice notice-info"><b>Prototype scope:</b> the file picker validates PDF/DOCX type and size only. Resume parsing and AI scoring are
-        <b>not implemented</b> — candidate details and criterion scores below are sample data or values you enter. The weighted total, skill matching and threshold checks are calculated live.</div>
+      ${AppsRemote.enabled
+        ? `<div class="notice notice-info">Open the candidate's resume from Google Drive and record skills, evidence and scores here. Resume text isn't read or scored automatically;
+            the weighted total, skill matching and threshold checks are calculated live from what you enter.</div>`
+        : `<div class="notice notice-info"><b>Prototype scope:</b> the file picker validates PDF/DOCX type and size only. Resume parsing and AI scoring are
+        <b>not implemented</b> — candidate details and criterion scores below are sample data or values you enter. The weighted total, skill matching and threshold checks are calculated live.</div>`}
       <div class="card"><div class="toolbar" style="margin:0">
         <div class="grow field"><label for="asSelect">Candidate application</label>
           <select id="asSelect" class="input">${Object.entries(byJob).map(([jid, list]) => `<optgroup label="${esc(jobTitle(jid))}">${list.map(a =>
@@ -2672,7 +2704,7 @@ function drawEvalTable(job) {
   list.sort(EV.sort === "name" ? (a, b) => a.name.localeCompare(b.name) : EV.sort === "exp" ? (a, b) => b.relExp - a.relExp : (a, b) => sc(b) - sc(a));
   const host = $("#evTable");
   if (!list.length) { host.innerHTML = emptyState("No candidates match this filter", "Change the status filter to see more candidates."); return; }
-  host.innerHTML = `<div class="table-wrap"><table><thead><tr><th><span class="sr-only">Select</span></th><th>Candidate</th><th>Employee ID</th><th>Current dept.</th><th>Rel. exp</th>
+  host.innerHTML = `<div class="table-wrap"><table class="stack"><thead><tr><th><span class="sr-only">Select</span></th><th>Candidate</th><th>Employee ID</th><th>Current dept.</th><th>Rel. exp</th>
     <th>Resume score</th><th>Assessment</th><th>Decision</th><th>Recruiter comments</th><th>Actions</th></tr></thead><tbody>
     ${list.map(a => { const s = scoring.final(a, job); const below = s != null && s < job.threshold; const closed = a.decision === "Withdrawn"; return `<tr>
       <td><input type="checkbox" data-sel="${esc(a.id)}" aria-label="Select ${esc(a.name)} for comparison" ${EV.selected.has(a.id) ? "checked" : ""}></td>
@@ -2803,7 +2835,7 @@ VIEWS.approvals = {
     const tabs = [["jobs", `Job posting approvals (${pendJobs.length})`], ["apps", `Manager approvals (${pendApps.length})`], ["pipeline", "Workflow pipeline"], ["audit", "Audit trail"]];
     let body = "";
     if (approvalsTab === "jobs") {
-      body = pendJobs.length ? `<div class="table-wrap"><table><thead><tr><th>Job</th><th>Department</th><th>Grade</th><th>Recruiter</th><th>Opens / closes</th><th>Weights</th><th>Actions</th></tr></thead><tbody>
+      body = pendJobs.length ? `<div class="table-wrap"><table class="stack"><thead><tr><th>Job</th><th>Department</th><th>Grade</th><th>Recruiter</th><th>Opens / closes</th><th>Weights</th><th>Actions</th></tr></thead><tbody>
         ${pendJobs.map(j => `<tr><td><b>${esc(j.title)}</b><div class="mono small muted">${esc(j.id)}</div></td><td>${esc(j.department)}</td><td>${esc(j.grade)}</td><td>${esc(j.recruiter)}</td>
           <td>${fmtDate(j.openDate)} – ${fmtDate(j.closeDate)}</td><td>${scoring.totalWeight(j.weights) === 100 ? '<span class="badge b-success">100%</span>' : `<span class="badge b-danger">${scoring.totalWeight(j.weights)}%</span>`}</td>
           <td><div class="btn-row" style="flex-wrap:nowrap"><button class="btn btn-sm" data-view-job="${esc(j.id)}">Review</button>
@@ -2811,7 +2843,7 @@ VIEWS.approvals = {
             <button class="btn btn-sm btn-danger" data-return-job="${esc(j.id)}" ${canAct ? "" : "disabled"}>Return to draft</button></div></td></tr>`).join("")}</tbody></table></div>`
         : emptyState("No postings awaiting approval", "Postings submitted for approval will appear here.");
     } else if (approvalsTab === "apps") {
-      body = pendApps.length ? `<div class="table-wrap"><table><thead><tr><th>Employee</th><th>Current role</th><th>Applied for</th><th>Applied</th><th>Actions</th></tr></thead><tbody>
+      body = pendApps.length ? `<div class="table-wrap"><table class="stack"><thead><tr><th>Employee</th><th>Current role</th><th>Applied for</th><th>Applied</th><th>Actions</th></tr></thead><tbody>
         ${pendApps.map(a => `<tr><td><b>${esc(a.name)}</b><div class="mono small muted">${esc(a.empId)}</div></td><td>${esc(a.designation)} · ${esc(a.dept)}</td>
           <td>${esc(jobTitle(a.jobId))}</td><td>${fmtDate(a.appliedAt)}</td>
           <td><div class="btn-row" style="flex-wrap:nowrap">${resumeButton(a)}<button class="btn btn-sm btn-success" data-approve-app="${esc(a.id)}" ${canAct ? "" : "disabled"}>Approve</button>
@@ -2820,7 +2852,7 @@ VIEWS.approvals = {
     } else if (approvalsTab === "pipeline") {
       const stages = ["Pending Assessment", "Under Review", "Assessed", "Shortlisted", "On Hold", "Rejected"];
       const jobs = api.listJobs().filter(j => ["Published", "Closed"].includes(j.status));
-      body = `<div class="table-wrap"><table><thead><tr><th>Job</th><th>Status</th>${stages.map(s => `<th>${esc(s)}</th>`).join("")}</tr></thead><tbody>
+      body = `<div class="table-wrap"><table class="stack"><thead><tr><th>Job</th><th>Status</th>${stages.map(s => `<th>${esc(s)}</th>`).join("")}</tr></thead><tbody>
         ${jobs.map(j => { const apps = api.listApps({ jobId: j.id }).filter(a => a.decision !== "Withdrawn");
           return `<tr><td><a href="#/evaluation?job=${esc(j.id)}">${esc(j.title)}</a></td><td>${badge(j.status)}</td>${stages.map(s => `<td>${apps.filter(a => appStage(a) === s).length || '<span class="muted">0</span>'}</td>`).join("")}</tr>`; }).join("")}
         </tbody></table></div><div style="margin-top:1rem"><h3>Posting lifecycle</h3>${workflowSteps("Pending Approval")}
@@ -3222,21 +3254,21 @@ const UsersAdmin = {
       return `<div class="card"><div class="card-head"><h3>Accounts created with sign-up <span class="small muted">TalentHub Register (Google Sheet)</span></h3></div>
         ${Auth.state === "unavailable" ? `<div class="notice notice-warn">${esc(Auth.message)}</div>`
           : !Auth.features.googleConnected ? `<div class="notice notice-info">Sign-up is off until the TalentHub Register (Google) is connected.</div>`
-          : signups.length ? `<div class="table-wrap"><table>${head(true)}<tbody>${signups.map(u => row(u, actions(u))).join("")}</tbody></table></div>`
+          : signups.length ? `<div class="table-wrap"><table class="stack">${head(true)}<tbody>${signups.map(u => row(u, actions(u))).join("")}</tbody></table></div>`
           : emptyState("No sign-ups yet", "People who use Create account on the sign-in page appear here. Job Posters need your approval.")}</div>
       <div class="card"><div class="card-head"><h3>Accounts from data/users.json</h3></div>
-        <div class="table-wrap"><table>${head(false)}<tbody>${fileAccts.map(u => row(u)).join("")}</tbody></table></div>
+        <div class="table-wrap"><table class="stack">${head(false)}<tbody>${fileAccts.map(u => row(u)).join("")}</tbody></table></div>
         <p class="hint" style="margin-top:.5rem">These are maintained in the repository; the website doesn't publish the file. To add, change or disable one, edit data/users.json (hash passwords with <span class="mono">npm run hash-password</span>) and push.</p></div>`;
     }
     const local = Auth.localUsers();
     const self = currentUser().uIdKey;
     return `<div class="card"><div class="card-head"><h3>Shared accounts <span class="small muted">data/users.json</span></h3>${Auth.state === "loaded" ? badge("Active") : badge("Disabled")}</div>
-        ${Auth.state === "loaded" ? `<div class="table-wrap"><table>${head(false)}<tbody>${Auth.directory.map(u => row(u)).join("")}</tbody></table></div>
+        ${Auth.state === "loaded" ? `<div class="table-wrap"><table class="stack">${head(false)}<tbody>${Auth.directory.map(u => row(u)).join("")}</tbody></table></div>
           <p class="hint" style="margin-top:.5rem">To add, change or disable a shared account, edit data/users.json in the repository (passwords must be hashed with <span class="mono">npm run hash-password</span>) and push.</p>`
           : `<div class="notice notice-warn">${esc(Auth.message)}</div>`}</div>
       <div class="card"><div class="card-head"><h3>Accounts created in this browser</h3>
           <button class="btn btn-sm" id="copyUsersJson" ${local.length ? "" : "disabled"}>Copy as users.json entries</button></div>
-        ${local.length ? `<div class="table-wrap"><table>${head(true)}<tbody>${local.map(u => row(u, `<div class="btn-row" style="flex-wrap:nowrap">
+        ${local.length ? `<div class="table-wrap"><table class="stack">${head(true)}<tbody>${local.map(u => row(u, `<div class="btn-row" style="flex-wrap:nowrap">
             ${u.status === "Pending" ? `<button class="btn btn-sm btn-success" data-user-act="approve" data-user="${esc(u.uIdKey)}">Approve</button>` : ""}
             ${u.status === "Active" && u.uIdKey !== self ? `<button class="btn btn-sm btn-danger" data-user-act="disable" data-user="${esc(u.uIdKey)}">Disable</button>` : ""}
             ${u.status === "Disabled" ? `<button class="btn btn-sm" data-user-act="enable" data-user="${esc(u.uIdKey)}">Enable</button>` : ""}
