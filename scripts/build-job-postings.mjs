@@ -208,6 +208,7 @@ async function main() {
   // Assemble the deployable site
   await mkdir(`${SITE_DIR}/data`, { recursive: true });
   await copyFile("TalentHub.html", `${SITE_DIR}/TalentHub.html`);
+  await copyFile("privacy.html", `${SITE_DIR}/privacy.html`);   // public privacy policy (linked from Google's consent screen)
   await copyFile(FEED, `${SITE_DIR}/${FEED}`);
   // users.json is NOT published: the sign-in functions read it on the server (vercel.json includeFiles).
   await rm(`${SITE_DIR}/${USERS}`, { force: true });

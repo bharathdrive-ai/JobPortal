@@ -22,7 +22,7 @@ if (!process.env.SESSION_SECRET) {
 }
 
 const TYPES = { ".html": "text/html; charset=utf-8", ".json": "application/json; charset=utf-8", ".js": "text/javascript", ".css": "text/css" };
-const STATIC = { "/": "TalentHub.html", "/TalentHub.html": "TalentHub.html", "/data/job-postings.json": "data/job-postings.json" };
+const STATIC = { "/": "TalentHub.html", "/TalentHub.html": "TalentHub.html", "/data/job-postings.json": "data/job-postings.json", "/privacy.html": "privacy.html" };
 
 createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host}`);
