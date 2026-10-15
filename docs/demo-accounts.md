@@ -25,6 +25,9 @@ Do not reuse these passwords anywhere else, and replace them before any real use
    Use a role code from the `roles` list: `JS`, `JP` or `AD`.
 3. Commit and push. The build validates the file and rejects plain-text passwords.
 
-Accounts created with **Create account** on the sign-in page are saved only in that
+On the live site, sign-in is checked by the server (`/api/auth/*`) and `users.json` is not
+published; self-registration there is paused until the shared accounts register (Google
+Sheet) is connected. In demo mode (opening the page without the server),
+accounts created with **Create account** on the sign-in page are saved only in that
 browser. An Admin can copy them as JSON from *Administration → User accounts* and
 add them to `data/users.json` to make them available everywhere.

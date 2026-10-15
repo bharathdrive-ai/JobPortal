@@ -11,7 +11,7 @@
  */
 import { createHash } from "node:crypto";
 import * as fs from "node:fs";
-import { mkdir, writeFile, copyFile } from "node:fs/promises";
+import { mkdir, writeFile, copyFile, rm } from "node:fs/promises";
 import * as XLSX from "xlsx";
 
 XLSX.set_fs(fs);
@@ -209,7 +209,8 @@ async function main() {
   await mkdir(`${SITE_DIR}/data`, { recursive: true });
   await copyFile("TalentHub.html", `${SITE_DIR}/TalentHub.html`);
   await copyFile(FEED, `${SITE_DIR}/${FEED}`);
-  await copyFile(USERS, `${SITE_DIR}/${USERS}`);
+  // users.json is NOT published: the sign-in functions read it on the server (vercel.json includeFiles).
+  await rm(`${SITE_DIR}/${USERS}`, { force: true });
   console.log(`✔ Site assembled in ./${SITE_DIR}`);
 }
 

@@ -1028,9 +1028,54 @@ const bytesToB64 = (b) => btoa(String.fromCharCode(...new Uint8Array(b)));
 
 const Auth = {
   user: null,
-  directory: [],            // shared accounts from users.json
+  directory: [],            // shared accounts (demo: users.json; server: /api/auth/users for Admins)
   state: "loading",         // loading | loaded | unavailable
   message: "",
+  mode: "demo",             // "server" when the TalentHub API is deployed (Vercel); "demo" otherwise
+
+  /* ---------- Server mode: the password is checked by /api/auth/login and the session is an
+     HttpOnly cookie the page can't read or forge. ---------- */
+  apiHeaders: { "Content-Type": "application/json", "X-TalentHub": "1", Accept: "application/json" },
+
+  /** Detects the sign-in API and restores the server session. Returns true in server mode. */
+  async detectServer() {
+    try {
+      const res = await fetch("api/auth/session", { credentials: "same-origin", cache: "no-store", headers: { Accept: "application/json" } });
+      if (res.headers.get("X-TalentHub-Auth") !== "server") return false;
+      Auth.mode = "server"; Auth.state = "loaded";
+      if (res.ok) Auth.adopt((await res.json()).user);
+      else if (res.status >= 500) { Auth.message = (await res.json().catch(() => ({}))).error || "Sign-in is unavailable."; }
+      return true;
+    } catch (e) { return false; }
+  },
+  /** Sets the signed-in user from the server's public profile (no password data). */
+  adopt(u) {
+    const role = ROLES[u && u.roleCode];
+    if (!role) return;
+    Auth.user = Object.assign({}, u, { roleName: role.name, role: role.name, roleKey: role.key, initials: initials(u.name) });
+    if (u.roleCode === "AD") Auth.loadServerUsers();
+  },
+  async loadServerUsers() {
+    try {
+      const res = await fetch("api/auth/users", { credentials: "same-origin", cache: "no-store", headers: { Accept: "application/json" } });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error || "HTTP " + res.status);
+      Auth.directory = body.users.map(u => Object.assign({ source: "shared" }, u));
+      Auth.state = "loaded";
+    } catch (e) { Auth.state = "unavailable"; Auth.message = "Couldn't load user accounts (" + e.message + ")."; }
+    const r = parseRoute();
+    if (r.module === "admin" && adminTab === "users" && !modal.isOpen()) render();
+  },
+  async serverSignIn(login, password, roleCode) {
+    let res, body;
+    try {
+      res = await fetch("api/auth/login", { method: "POST", credentials: "same-origin", headers: Auth.apiHeaders, body: JSON.stringify({ login, password, roleCode }) });
+      body = await res.json();
+    } catch (e) { return "Can't reach the sign-in service. Check your connection and try again."; }
+    if (!res.ok) return body.error || "Sign-in failed. Try again.";
+    Auth.adopt(body.user);
+    return "";
+  },
 
   /** Loads users.json. Each entry is coerced to the expected shape (treated as untrusted). */
   async loadDirectory() {
@@ -1114,6 +1159,8 @@ const Auth = {
   /** Returns "" on success, otherwise an error message for the sign-in form. */
   async signIn(login, password, roleCode) {
     if (!login || !password) return "Enter your user ID or email and your password.";
+    if (Auth.mode === "server") return Auth.serverSignIn(login, password, roleCode);
+    // Demo mode (no server): checked in this browser against users.json.
     const mins = Auth.lockedFor(login);
     if (mins) return `Too many failed attempts. Try again in ${mins} minute${mins > 1 ? "s" : ""}.`;
     const u = Auth.find(login);
@@ -1139,7 +1186,13 @@ const Auth = {
     const u = Auth.byKey(s.uIdKey);
     if (u && u.status === "Active" && u.roleCode === s.roleCode) Auth.start(u); else safeSession.remove(SESSION_KEY);
   },
-  signOut() { Auth.user = null; safeSession.remove(SESSION_KEY); },
+  signOut() {
+    Auth.user = null; safeSession.remove(SESSION_KEY);
+    if (Auth.mode === "server") {
+      Auth.directory = [];
+      fetch("api/auth/logout", { method: "POST", credentials: "same-origin", headers: Auth.apiHeaders, body: "{}" }).catch(() => {});
+    }
+  },
 
   /** Creates a browser-only account. Returns { error } or { user }. */
   async register(f) {
@@ -2765,7 +2818,9 @@ const LoginView = {
   render() {
     const t = LoginView.tab;
     const notice = LoginView.notice ? `<div class="notice notice-${LoginView.notice.type === "error" ? "danger" : LoginView.notice.type}" role="status">${esc(LoginView.notice.text)}</div>` : "";
-    const dirNote = Auth.state === "unavailable" ? `<div class="notice notice-warn small">${esc(Auth.message)} Accounts created in this browser still work.</div>` : "";
+    const dirNote = Auth.mode === "server"
+      ? (Auth.message ? `<div class="notice notice-danger small">${esc(Auth.message)}</div>` : "")
+      : `<div class="notice notice-info small"><b>Demo mode:</b> no sign-in server was found, so accounts are checked in this browser.${Auth.state === "unavailable" ? " " + esc(Auth.message) + " Accounts created in this browser still work." : ""}</div>`;
     return `<div class="auth-wrap"><div class="auth-card ${t === "register" ? "wide" : ""}">
       <div class="auth-head"><div class="brand-row"><div class="brand-logo" aria-hidden="true">TH</div><div style="flex:1;min-width:0"><h1>TalentHub</h1>
         <p>Internal Careers &amp; Resume Assessment</p></div>${themeSwitchHtml("themeLogin")}</div>
@@ -2795,6 +2850,9 @@ const LoginView = {
   },
 
   registerForm() {
+    if (Auth.mode === "server") return `<div class="notice notice-info"><b>Self-registration is paused on this site.</b> Accounts are now checked by the sign-in server, and new accounts will be saved to the shared accounts register when it is connected (next step of the Google integration).</div>
+      <p class="small">Until then, ask an Admin to add your account. Admins add accounts to <span class="mono">data/users.json</span> as described in <span class="mono">docs/demo-accounts.md</span>.</p>
+      <button class="btn" type="button" data-auth-tab="signin">Back to sign in</button>`;
     const L = DB.lookups;
     const field = (id, label, input, span) => `<div class="field ${span ? "span-2" : ""}"><label for="${id}" class="req">${label}</label>${input}<div class="err" data-reg-err="${id}"></div></div>`;
     return `<form id="registerForm" novalidate style="display:flex;flex-direction:column;gap:.9rem">
@@ -2900,6 +2958,17 @@ const UsersAdmin = {
       <td class="mono small">${esc(u.userId)}<div class="muted">${esc(u.email)}</div></td><td class="mono small">${esc(u.empId)}</td>
       <td>${esc(ROLES[u.roleCode].name)} <span class="mono small muted">${esc(u.roleCode)}</span></td><td>${badge(u.status)}</td>${actions ? `<td>${actions}</td>` : ""}</tr>`;
     const head = (extra) => `<thead><tr><th>uIdKey</th><th>Name</th><th>User ID / email</th><th>Employee ID</th><th>Role</th><th>Status</th>${extra ? "<th>Actions</th>" : ""}</tr></thead>`;
+    // Server mode: accounts come from the sign-in server (Admin-only API); no browser-only accounts.
+    if (Auth.mode === "server") {
+      if (!Auth.directory.length && Auth.state !== "unavailable") {
+        if (!UsersAdmin.requested) { UsersAdmin.requested = true; Auth.loadServerUsers(); }
+        return `<div class="card">${emptyState("Loading accounts…", "Fetching the account list from the sign-in server.")}</div>`;
+      }
+      return `<div class="card"><div class="card-head"><h3>User accounts <span class="small muted">checked by the sign-in server</span></h3></div>
+        ${Auth.state === "unavailable" ? `<div class="notice notice-warn">${esc(Auth.message)}</div>`
+          : `<div class="table-wrap"><table>${head(false)}<tbody>${Auth.directory.map(u => row(u)).join("")}</tbody></table></div>`}
+        <p class="hint" style="margin-top:.5rem">Accounts are stored in data/users.json, which the server reads and the website no longer publishes. To add, change or disable an account, edit that file (hash passwords with <span class="mono">npm run hash-password</span>) and push.</p></div>`;
+    }
     const local = Auth.localUsers();
     const self = currentUser().uIdKey;
     return `<div class="card"><div class="card-head"><h3>Shared accounts <span class="small muted">data/users.json</span></h3>${Auth.state === "loaded" ? badge("Active") : badge("Disabled")}</div>
@@ -2995,10 +3064,10 @@ async function init() {
     if (/ResizeObserver loop/.test(e.message || "")) return;   // harmless browser notice, not an app error
     toast("Unexpected error: " + (e.message || "unknown"), "error");
   });
-  // Load shared accounts, restore this tab's session, then show the portal or the sign-in page.
+  // Use the sign-in server when it's deployed (restores the cookie session); otherwise fall back to
+  // demo mode (accounts checked in this browser). Then show the portal or the sign-in page.
   $("#view").innerHTML = '<div class="empty">Loading TalentHub…</div>';
-  await Auth.loadDirectory();
-  Auth.restore();
+  if (!(await Auth.detectServer())) { await Auth.loadDirectory(); Auth.restore(); }
   render();
   // Load postings from the spreadsheet feed, then refresh any view that shows them (never mid-edit).
   syncJobFeed().then(changed => {

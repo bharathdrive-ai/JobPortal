@@ -5,9 +5,14 @@
   "type": "module",
   "scripts": {
     "build": "node scripts/build-job-postings.mjs",
-    "hash-password": "node scripts/hash-password.mjs"
+    "hash-password": "node scripts/hash-password.mjs",
+    "dev": "node scripts/dev-server.mjs",
+    "test:auth": "node scripts/test-auth.mjs"
   },
   "dependencies": {
     "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
+  },
+  "engines": {
+    "node": ">=20"
   }
 }
