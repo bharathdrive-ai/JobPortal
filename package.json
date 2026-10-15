@@ -7,7 +7,9 @@
     "build": "node scripts/build-job-postings.mjs",
     "hash-password": "node scripts/hash-password.mjs",
     "dev": "node scripts/dev-server.mjs",
-    "test:auth": "node scripts/test-auth.mjs"
+    "test:auth": "node scripts/test-auth.mjs",
+    "google-auth": "node scripts/google-auth.mjs",
+    "test:api": "node scripts/test-api.mjs"
   },
   "dependencies": {
     "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"

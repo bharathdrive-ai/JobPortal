@@ -773,9 +773,56 @@ const safeStorage = {
 };
 
 let DB = safeStorage.get(STORE_KEY) || seedData();
+if (!Array.isArray(DB.apps)) DB.apps = [];
 function persist() {
-  if (!safeStorage.set(STORE_KEY, DB)) toast("Could not save to browser storage — changes will be lost on reload.", "warn");
+  // Applications from the shared register are never cached in the browser (another person may use this computer).
+  const toSave = AppsRemote.enabled ? Object.assign({}, DB, { apps: [] }) : DB;
+  if (!safeStorage.set(STORE_KEY, toSave)) toast("Could not save to browser storage — changes will be lost on reload.", "warn");
 }
+
+/* ---------------------------------------------------------------------
+   Shared applications register (server mode with Google connected).
+   Reads and writes go through /api/applications; the server decides who may
+   see or change what. In demo mode applications stay in this browser.
+   --------------------------------------------------------------------- */
+const AppsRemote = {
+  enabled: false,
+  message: "",
+  headers: { "Content-Type": "application/json", "X-TalentHub": "1", Accept: "application/json" },
+  /** Loads the applications this user may see. Returns true when the shared register is in use. */
+  async load() {
+    if (Auth.mode !== "server" || !currentUser()) { AppsRemote.enabled = false; return false; }
+    try {
+      const res = await fetch("api/applications", { credentials: "same-origin", cache: "no-store", headers: { Accept: "application/json" } });
+      const body = await res.json().catch(() => ({}));
+      if (res.status === 503 && body.notConnected) { AppsRemote.enabled = false; AppsRemote.message = ""; return false; }
+      if (!res.ok) throw new Error(body.error || "HTTP " + res.status);
+      DB.apps = Array.isArray(body.applications) ? body.applications : [];
+      AppsRemote.enabled = true; AppsRemote.message = "";
+      return true;
+    } catch (e) {
+      AppsRemote.enabled = true; DB.apps = [];   // don't fall back to local data while signed in to the server
+      AppsRemote.message = "Applications couldn't be loaded (" + e.message + "). Try again in a moment.";
+      return false;
+    }
+  },
+  async post(url, payload) {
+    const res = await fetch(url, { method: "POST", credentials: "same-origin", headers: AppsRemote.headers, body: JSON.stringify(payload) });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(body.error || "The applications register couldn't be reached.");
+    return body.application;
+  },
+  /** Sends a change and replaces the local copy with the saved record. On failure: tell the user and reload. */
+  async update(id, patch) {
+    try {
+      const saved = await AppsRemote.post("api/applications/update", { id, patch });
+      const i = DB.apps.findIndex(a => a.id === id); if (i >= 0) DB.apps[i] = saved;
+    } catch (e) {
+      toast("Couldn't save that change: " + e.message, "error");
+      await AppsRemote.load(); render();
+    }
+  },
+};
 
 const api = {
   listJobs: () => DB.jobs,
@@ -797,7 +844,13 @@ const api = {
   listApps: (filter) => DB.apps.filter(a => !filter || Object.entries(filter).every(([k, v]) => a[k] === v)),
   getApp: (id) => DB.apps.find(a => a.id === id) || null,
   createApp(app) { app.id = "APP-" + DB.seq.app++; DB.apps.unshift(app); persist(); return app; },
-  updateApp(id, patch) { const a = api.getApp(id); if (!a) throw new Error("Application not found"); Object.assign(a, patch); persist(); return a; },
+  /** Updates locally at once (so the screen responds immediately); in server mode the change is also saved to the register. */
+  updateApp(id, patch) {
+    const a = api.getApp(id); if (!a) throw new Error("Application not found");
+    Object.assign(a, patch); persist();
+    if (AppsRemote.enabled) AppsRemote.update(id, JSON.parse(JSON.stringify(patch)));
+    return a;
+  },
   getProfile: (id) => DB.profiles.find(p => p.id === id) || null,
   logActivity(text, type) { DB.activities.unshift({ at: nowStamp(), text, type: type || "info" }); DB.activities = DB.activities.slice(0, 50); persist(); },
   reset() { DB = seedData(); persist(); safeStorage.remove(DRAFT_KEY); },
@@ -1033,6 +1086,7 @@ const Auth = {
   state: "loading",         // loading | loaded | unavailable
   message: "",
   mode: "demo",             // "server" when the TalentHub API is deployed (Vercel); "demo" otherwise
+  features: {},             // from the server, e.g. { googleConnected: true }
 
   /* ---------- Server mode: the password is checked by /api/auth/login and the session is an
      HttpOnly cookie the page can't read or forge. ---------- */
@@ -1044,8 +1098,10 @@ const Auth = {
       const res = await fetch("api/auth/session", { credentials: "same-origin", cache: "no-store", headers: { Accept: "application/json" } });
       if (res.headers.get("X-TalentHub-Auth") !== "server") return false;
       Auth.mode = "server"; Auth.state = "loaded";
-      if (res.ok) Auth.adopt((await res.json()).user);
-      else if (res.status >= 500) { Auth.message = (await res.json().catch(() => ({}))).error || "Sign-in is unavailable."; }
+      const body = await res.json().catch(() => ({}));
+      Auth.features = body.features || {};
+      if (res.ok) Auth.adopt(body.user);
+      else if (res.status >= 500) Auth.message = body.error || "Sign-in is unavailable.";
       return true;
     } catch (e) { return false; }
   },
@@ -1187,16 +1243,35 @@ const Auth = {
     const u = Auth.byKey(s.uIdKey);
     if (u && u.status === "Active" && u.roleCode === s.roleCode) Auth.start(u); else safeSession.remove(SESSION_KEY);
   },
+  /** Sign-up on the server: validated, hashed and saved to the Accounts tab of the register sheet. */
+  async serverRegister(f) {
+    const local = passwordIssues(f.password, [f.name, f.email, f.empId]);
+    if (f.password !== f.confirm) return { errors: { regPw2: "Passwords don't match." } };
+    if (!f.consent) return { errors: { regConsent: "Please confirm to continue." } };
+    if (local.length) return { errors: { regPw: "Password needs: " + local.join(", ") + "." } };
+    let res, body;
+    try {
+      res = await fetch("api/auth/register", { method: "POST", credentials: "same-origin", headers: Auth.apiHeaders,
+        body: JSON.stringify({ roleCode: f.roleCode, name: f.name, email: f.email, empId: f.empId, designation: f.designation,
+          department: f.department, grade: f.grade, tenure: f.tenure, relExp: f.relExp, password: f.password }) });
+      body = await res.json().catch(() => ({}));
+    } catch (e) { return { errors: { regConsent: "Can't reach the sign-up service. Check your connection and try again." } }; }
+    if (!res.ok) return { errors: body.errors || { regConsent: body.error || "Sign-up failed. Try again." } };
+    return { user: body.user };
+  },
+
   signOut() {
     Auth.user = null; safeSession.remove(SESSION_KEY);
     if (Auth.mode === "server") {
       Auth.directory = [];
+      if (AppsRemote.enabled) { DB.apps = []; AppsRemote.enabled = false; }   // never leave one person's data for the next
       fetch("api/auth/logout", { method: "POST", credentials: "same-origin", headers: Auth.apiHeaders, body: "{}" }).catch(() => {});
     }
   },
 
   /** Creates a browser-only account. Returns { error } or { user }. */
   async register(f) {
+    if (Auth.mode === "server") return Auth.serverRegister(f);
     const errs = {};
     const name = f.name.trim().replace(/\s+/g, " "), email = f.email.trim().toLowerCase(), empId = f.empId.trim().toUpperCase();
     if (!/^[\p{L}][\p{L} .'-]{1,79}$/u.test(name)) errs.regName = "Enter your full name (letters, spaces, . ' -).";
@@ -1856,7 +1931,7 @@ function openApplyDialog(jobId) {
     foot: `<button class="btn" data-close>Cancel</button><button class="btn btn-primary" id="apSubmit">Submit application</button>`,
     onOpen(root) {
       const picker = bindResumePicker(root, "apFile");
-      $("#apSubmit", root).addEventListener("click", () => {
+      $("#apSubmit", root).addEventListener("click", async () => {
         if (picker.checking) { toast("Still checking your resume file. Try again in a moment.", "warn"); return; }
         const file = picker.file;
         let ok = true;
@@ -1868,6 +1943,21 @@ function openApplyDialog(jobId) {
         $("#apConsentErr", root).textContent = consent ? "" : "Please confirm to continue.";
         if (!consent) ok = false;
         if (!ok) return;
+        if (AppsRemote.enabled) {
+          // Shared register: the server builds the application from the signed-in account.
+          const btn = $("#apSubmit", root); btn.disabled = true; btn.textContent = "Submitting…";
+          try {
+            const saved = await AppsRemote.post("api/applications", { jobId, note: $("#apNote", root).value.trim(),
+              resumeFile: file ? file.name : "", resumeSize: file ? file.size : 0 });
+            DB.apps.unshift(saved);
+          } catch (e) {
+            btn.disabled = false; btn.textContent = "Submit application";
+            $("#apFileErr", root).textContent = e.message; return;
+          }
+          api.logActivity(`${u.name} applied to ${j.title}`, "apply");
+          modal.close(); toast("Application submitted. Track it under My Applications.", "success"); render();
+          return;
+        }
         const p = employeeProfile();
         api.createApp({ jobId, name: u.name, empId: u.empId, dept: p.dept, designation: p.designation, grade: p.grade, tenureMonths: p.tenureMonths,
           relExp: p.relExp, skills: [], education: p.education, certs: [], resumeFile: file ? file.name : "(not provided)",
@@ -2899,7 +2989,7 @@ VIEWS.admin = {
     });
     const rs = $("#resetData", root);
     if (rs) rs.addEventListener("click", () => confirmDialog({ title: "Reset sample data", message: "Replace all local data with the original sample data? Your changes will be lost.",
-      confirmLabel: "Reset", danger: true, onConfirm() { api.reset(); syncJobFeed({ force: true }).finally(() => { toast("Sample data restored.", "success"); render(); }); } }));
+      confirmLabel: "Reset", danger: true, onConfirm() { api.reset(); syncJobFeed({ force: true }).then(() => AppsRemote.load()).finally(() => { toast(AppsRemote.enabled ? "Job postings restored. Applications come from the shared register and were reloaded." : "Sample data restored.", "success"); render(); }); } }));
     const rf = $("#resyncFeed", root);
     if (rf) rf.addEventListener("click", () => confirmDialog({ title: "Re-sync job postings", message: "Replace this browser's copies of spreadsheet postings with the latest job-postings.xlsx? Edits made here to those postings will be lost.",
       confirmLabel: "Re-sync", onConfirm() { syncJobFeed({ force: true }).then(ok => { toast(ok ? `Synced ${FEED.count} postings from job-postings.xlsx.` : FEED.message, ok ? "success" : "error"); render(); }); } }));
@@ -2950,7 +3040,7 @@ const LoginView = {
   },
 
   registerForm() {
-    if (Auth.mode === "server") return `<div class="notice notice-info"><b>Self-registration is paused on this site.</b> Accounts are now checked by the sign-in server, and new accounts will be saved to the shared accounts register when it is connected (next step of the Google integration).</div>
+    if (Auth.mode === "server" && !Auth.features.googleConnected) return `<div class="notice notice-info"><b>Self-registration is paused on this site.</b> Accounts are checked by the sign-in server, and new accounts are saved to the shared accounts register, which isn't connected yet.</div>
       <p class="small">Until then, ask an Admin to add your account. Admins add accounts to <span class="mono">data/users.json</span> as described in <span class="mono">docs/demo-accounts.md</span>.</p>
       <button class="btn" type="button" data-auth-tab="signin">Back to sign in</button>`;
     const L = DB.lookups;
@@ -2978,7 +3068,7 @@ const LoginView = {
         <span>I confirm these details are accurate and agree that HR may use them to manage my job applications.</span></label>
       <div class="err" data-reg-err="regConsent"></div>
       <button class="btn btn-primary" type="submit" id="regSubmit">Create account</button>
-      <p class="auth-foot">New accounts are saved in this browser. An Admin can add them to the shared accounts file (data/users.json).</p>
+      <p class="auth-foot">${Auth.mode === "server" ? "New accounts are saved to the shared TalentHub register." : "New accounts are saved in this browser. An Admin can add them to the shared accounts file (data/users.json)."}</p>
     </form>`;
   },
 
@@ -3001,7 +3091,7 @@ const LoginView = {
         const btn = $("#siSubmit", si), err = $("#siErr", si);
         LoginView.busy = true; btn.disabled = true; btn.textContent = "Signing in…"; err.textContent = "";
         let msg;
-        try { msg = await Auth.signIn($("#siLogin", si).value.trim(), $("#siPw", si).value, LoginView.role); }
+        try { msg = await Auth.signIn($("#siLogin", si).value.trim(), $("#siPw", si).value, LoginView.role); if (!msg) await AppsRemote.load(); }
         catch (ex) { msg = "Sign-in isn't available in this browser (" + ex.message + ")."; }
         LoginView.busy = false;
         if (msg) { err.textContent = msg; btn.disabled = false; btn.textContent = "Sign in"; $("#siPw", si).value = ""; $("#siPw", si).focus(); return; }
@@ -3064,10 +3154,20 @@ const UsersAdmin = {
         if (!UsersAdmin.requested) { UsersAdmin.requested = true; Auth.loadServerUsers(); }
         return `<div class="card">${emptyState("Loading accounts…", "Fetching the account list from the sign-in server.")}</div>`;
       }
-      return `<div class="card"><div class="card-head"><h3>User accounts <span class="small muted">checked by the sign-in server</span></h3></div>
+      const me = currentUser().uIdKey;
+      const fileAccts = Auth.directory.filter(u => u.source !== "register"), signups = Auth.directory.filter(u => u.source === "register");
+      const actions = (u) => `<div class="btn-row" style="flex-wrap:nowrap">
+        ${u.status === "Pending" ? `<button class="btn btn-sm btn-success" data-srv-act="approve" data-user="${esc(u.uIdKey)}">Approve</button>` : ""}
+        ${u.status === "Active" && u.uIdKey !== me ? `<button class="btn btn-sm btn-danger" data-srv-act="disable" data-user="${esc(u.uIdKey)}">Disable</button>` : ""}
+        ${u.status === "Disabled" ? `<button class="btn btn-sm" data-srv-act="enable" data-user="${esc(u.uIdKey)}">Enable</button>` : ""}</div>`;
+      return `<div class="card"><div class="card-head"><h3>Accounts created with sign-up <span class="small muted">TalentHub Register (Google Sheet)</span></h3></div>
         ${Auth.state === "unavailable" ? `<div class="notice notice-warn">${esc(Auth.message)}</div>`
-          : `<div class="table-wrap"><table>${head(false)}<tbody>${Auth.directory.map(u => row(u)).join("")}</tbody></table></div>`}
-        <p class="hint" style="margin-top:.5rem">Accounts are stored in data/users.json, which the server reads and the website no longer publishes. To add, change or disable an account, edit that file (hash passwords with <span class="mono">npm run hash-password</span>) and push.</p></div>`;
+          : !Auth.features.googleConnected ? `<div class="notice notice-info">Sign-up is off until the TalentHub Register (Google) is connected.</div>`
+          : signups.length ? `<div class="table-wrap"><table>${head(true)}<tbody>${signups.map(u => row(u, actions(u))).join("")}</tbody></table></div>`
+          : emptyState("No sign-ups yet", "People who use Create account on the sign-in page appear here. Job Posters need your approval.")}</div>
+      <div class="card"><div class="card-head"><h3>Accounts from data/users.json</h3></div>
+        <div class="table-wrap"><table>${head(false)}<tbody>${fileAccts.map(u => row(u)).join("")}</tbody></table></div>
+        <p class="hint" style="margin-top:.5rem">These are maintained in the repository; the website doesn't publish the file. To add, change or disable one, edit data/users.json (hash passwords with <span class="mono">npm run hash-password</span>) and push.</p></div>`;
     }
     const local = Auth.localUsers();
     const self = currentUser().uIdKey;
@@ -3086,6 +3186,22 @@ const UsersAdmin = {
         <p class="hint" style="margin-top:.5rem">These accounts exist only in this browser. To make one available everywhere, copy it as JSON and add it to data/users.json.</p></div>`;
   },
   bind(root) {
+    // Server mode: approve / disable / enable sign-up accounts in the register.
+    $$("[data-srv-act]", root).forEach(b => b.addEventListener("click", () => {
+      const act = b.dataset.srvAct, u = Auth.directory.find(x => x.uIdKey === b.dataset.user);
+      if (!u) return;
+      const run = async () => {
+        b.disabled = true;
+        const res = await fetch("api/auth/user-status", { method: "POST", credentials: "same-origin", headers: Auth.apiHeaders, body: JSON.stringify({ uIdKey: u.uIdKey, action: act }) }).catch(() => null);
+        const body = res ? await res.json().catch(() => ({})) : {};
+        if (!res || !res.ok) { b.disabled = false; toast(body.error || "Couldn't update the account. Try again.", "error"); return; }
+        api.logActivity(`${currentUser().name} ${act === "approve" ? "approved" : act + "d"} the account ${u.userId}`, "workflow");
+        toast(`Account ${u.userId} ${act === "approve" ? "approved" : act + "d"}.`, "success");
+        await Auth.loadServerUsers();
+      };
+      if (act === "disable") confirmDialog({ title: "Disable account", message: `Disable ${u.userId} (${u.name})? They'll be signed out and can't sign in until enabled again.`, confirmLabel: "Disable", danger: true, onConfirm: run });
+      else run();
+    }));
     $$("[data-user-act]", root).forEach(b => b.addEventListener("click", () => {
       const list = Auth.localUsers(), u = list.find(x => x.uIdKey === b.dataset.user), act = b.dataset.userAct;
       if (!u) return;
@@ -3168,6 +3284,7 @@ async function init() {
   // demo mode (accounts checked in this browser). Then show the portal or the sign-in page.
   $("#view").innerHTML = '<div class="empty">Loading TalentHub…</div>';
   if (!(await Auth.detectServer())) { await Auth.loadDirectory(); Auth.restore(); }
+  else if (currentUser()) await AppsRemote.load();
   render();
   // Load postings from the spreadsheet feed, then refresh any view that shows them (never mid-edit).
   syncJobFeed().then(changed => {

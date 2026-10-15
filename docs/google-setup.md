@@ -11,6 +11,9 @@ your Google account to TalentHub. They can only be done by you, signed in to Goo
 
 ---
 
+> **Status (15 Oct 2026):** Parts A–C are done: project `TalentHub` (ID `talenthub-511703`), Drive and Sheets APIs enabled,
+> consent screen with only `drive.file`, published (*In production*). **Part D is still to do.**
+
 ## Part A — Create a Google Cloud project
 
 1. Open <https://console.cloud.google.com/> and sign in with the Google account that should own the resumes.
@@ -32,15 +35,20 @@ your Google account to TalentHub. They can only be done by you, signed in to Goo
 11. Open **Data access** → **Add or remove scopes** → tick only
     **`.../auth/drive.file`** — *"See, edit, create and delete only the specific Google Drive files you use with this app."* → **Update** → **Save**.
     - Don't add the full "Google Drive" scope. With `drive.file`, TalentHub can only see the folder and files it creates, never the rest of your Drive.
-12. Open **Audience** → under *Publishing status* click **Publish app** → confirm.
+12. Open **Branding** and fill in the app domain (Google needs these before it lets you publish):
+    - Application home page: `https://talenthub-jobportal.vercel.app`
+    - Application privacy policy link: `https://talenthub-jobportal.vercel.app/privacy.html`
+    - Authorized domain: `talenthub-jobportal.vercel.app` → **Save**.
+    Optional: **Verify branding** (via Google Search Console) makes the consent screen show the TalentHub name; sign-in works without it.
+13. Open **Audience** → under *Publishing status* click **Publish app** → confirm.
     - Why: while an app is in *Testing*, Google expires its access after **7 days**, which would silently stop resume uploads. `drive.file` doesn't need Google's review, so publishing is immediate.
     - When you approve access later, Google will warn that the app isn't verified. That's expected for your own app: choose **Advanced → Go to TalentHub**.
 
 ## Part D — Create the OAuth client
 
-13. Open **Clients** → **Create client**.
-14. **Application type:** **Desktop app**. Name: `TalentHub setup` → **Create**.
-15. Click **Download JSON** and save the file **outside** the project folder (for example in `Documents\TalentHub-secrets\`).
+14. Open **Clients** → **Create client**.
+15. **Application type:** **Desktop app**. Name: `TalentHub setup` → **Create**.
+16. Click **Download JSON** and save the file **outside** the project folder (for example in `Documents\TalentHub-secrets\`).
     - This file holds the client ID and secret. Keep it private.
     - It's used once, by a setup command (`npm run google-auth`, added in the Drive step), which opens your browser for you to approve access and then prints the values for Vercel.
 

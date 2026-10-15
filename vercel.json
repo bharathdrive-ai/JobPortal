@@ -46,7 +46,7 @@
   ],
   "functions": {
     "api/**/*.js": {
-      "includeFiles": "data/users.json",
+      "includeFiles": "data/*.json",
       "maxDuration": 10
     }
   }

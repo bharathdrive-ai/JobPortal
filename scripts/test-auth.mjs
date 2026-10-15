@@ -66,7 +66,7 @@ const forged = JSON.parse(Buffer.from(payload, "base64url").toString()); forged.
 r = await get("/api/auth/session", "th_session=" + Buffer.from(JSON.stringify(forged)).toString("base64url") + "." + sig);
 check("tampered token (claims Admin) → 401", r.status === 401);
 
-const old = createToken(findByLogin(DEMO.AD[0]), Date.now() - 9 * 3600_000);
+const old = createToken(await findByLogin(DEMO.AD[0]), Date.now() - 9 * 3600_000);
 r = await get("/api/auth/session", "th_session=" + old);
 check("expired token → 401", r.status === 401);
 

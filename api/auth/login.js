@@ -24,10 +24,11 @@ export default async function handler(req, res) {
     const wait = lockedFor(keys);
     if (wait) { const m = Math.ceil(wait / 60000); return sendJson(res, 429, { error: `Too many failed attempts. Try again in ${m} minute${m > 1 ? "s" : ""}.` }); }
 
-    const user = findByLogin(login);
+    const user = await findByLogin(login);
     const ok = await verifyPassword(password, user ? user.password : null);   // runs even for unknown accounts
     if (!user || !ok) { recordFailure(keys); return sendJson(res, 401, { error: BAD }); }
     clearFailures(keys);
+    if (user.status === "Pending") return sendJson(res, 403, { error: "Your account is waiting for Admin approval." });
     if (user.status !== "Active") return sendJson(res, 403, { error: "This account is disabled. Contact HR to restore access." });
     if (user.roleCode !== roleCode) return sendJson(res, 403, { error: `This account is registered as ${ROLE_NAMES[user.roleCode]}. Choose that role to sign in.` });
 
