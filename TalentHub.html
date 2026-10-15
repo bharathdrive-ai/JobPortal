@@ -30,6 +30,11 @@
   --shadow:0 1px 2px rgba(15,23,42,.06),0 2px 8px rgba(15,23,42,.05);
   --radius:10px; --radius-sm:6px;
   --font:"Segoe UI",system-ui,-apple-system,Roboto,"Helvetica Neue",Arial,sans-serif;
+  --auth-base:linear-gradient(135deg,#eef3ff 0%,#f6f0ff 45%,#fff3ec 100%);
+  --auth-blob-1:rgba(59,108,255,.55); --auth-blob-2:rgba(139,92,246,.46); --auth-blob-3:rgba(255,122,89,.46); --auth-blob-4:rgba(20,184,166,.40);
+  --auth-motif:rgba(36,83,201,.13); --auth-card:rgba(255,255,255,.82); --auth-card-border:rgba(255,255,255,.75);
+  --auth-chip:rgba(255,255,255,.78); --auth-chip-shadow:0 12px 30px rgba(36,56,120,.16);
+  --glass:rgba(255,255,255,.86); --glass-bar:rgba(255,255,255,.72); --sidebar-glass:linear-gradient(180deg,rgba(15,27,61,.94),rgba(34,24,84,.92));
   color-scheme:light;
 }
 @media (prefers-color-scheme:dark){
@@ -44,6 +49,11 @@
     --neutral-soft:#1b2540;
     --sidebar:#080e1d; --sidebar-text:#aab7e0; --sidebar-active:#2b4cc0;
     --shadow:0 1px 2px rgba(0,0,0,.4);
+    --auth-base:linear-gradient(135deg,#060a19 0%,#0d0f2e 50%,#160c24 100%);
+    --auth-blob-1:rgba(59,108,255,.40); --auth-blob-2:rgba(147,92,255,.34); --auth-blob-3:rgba(255,106,77,.26); --auth-blob-4:rgba(20,200,180,.24);
+    --auth-motif:rgba(170,190,255,.10); --auth-card:rgba(19,28,49,.80); --auth-card-border:rgba(120,140,220,.22);
+    --auth-chip:rgba(22,32,58,.80); --auth-chip-shadow:0 12px 30px rgba(0,0,0,.45);
+    --glass:rgba(19,28,49,.84); --glass-bar:rgba(11,17,32,.70); --sidebar-glass:linear-gradient(180deg,rgba(8,14,29,.90),rgba(20,12,40,.88));
     color-scheme:dark;
   }
 }
@@ -58,6 +68,11 @@
   --neutral-soft:#1b2540;
   --sidebar:#080e1d; --sidebar-text:#aab7e0; --sidebar-active:#2b4cc0;
   --shadow:0 1px 2px rgba(0,0,0,.4);
+  --auth-base:linear-gradient(135deg,#060a19 0%,#0d0f2e 50%,#160c24 100%);
+  --auth-blob-1:rgba(59,108,255,.40); --auth-blob-2:rgba(147,92,255,.34); --auth-blob-3:rgba(255,106,77,.26); --auth-blob-4:rgba(20,200,180,.24);
+  --auth-motif:rgba(170,190,255,.10); --auth-card:rgba(19,28,49,.80); --auth-card-border:rgba(120,140,220,.22);
+  --auth-chip:rgba(22,32,58,.80); --auth-chip-shadow:0 12px 30px rgba(0,0,0,.45);
+  --glass:rgba(19,28,49,.84); --glass-bar:rgba(11,17,32,.70); --sidebar-glass:linear-gradient(180deg,rgba(8,14,29,.90),rgba(20,12,40,.88));
   color-scheme:dark;
 }
 
@@ -77,7 +92,7 @@ button,input,select,textarea{font:inherit;color:inherit}
 
 /* ============ 3. LAYOUT ============ */
 .app{display:grid;grid-template-columns:248px minmax(0,1fr);min-height:100vh}
-.sidebar{background:var(--sidebar);color:var(--sidebar-text);position:sticky;top:0;height:100vh;overflow-y:auto;display:flex;flex-direction:column;z-index:30}
+.sidebar{background:var(--sidebar-glass);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);color:var(--sidebar-text);position:sticky;top:0;height:100vh;overflow-y:auto;display:flex;flex-direction:column;z-index:30}
 .brand{display:flex;align-items:center;gap:.6rem;padding:1.1rem 1.1rem 1rem;color:#fff;border-bottom:1px solid rgba(255,255,255,.08)}
 .brand-logo{width:34px;height:34px;border-radius:8px;background:linear-gradient(135deg,#4f7bff,#22c3e6);display:grid;place-items:center;font-weight:700;color:#fff}
 .brand b{display:block;font-size:1rem} .brand span{font-size:.72rem;opacity:.75}
@@ -90,7 +105,7 @@ button,input,select,textarea{font:inherit;color:inherit}
 .nav .lock{margin-left:auto;font-size:.7rem;opacity:.7}
 .sidebar-foot{margin-top:auto;padding:1rem;font-size:.75rem;opacity:.8;border-top:1px solid rgba(255,255,255,.08)}
 .main{display:flex;flex-direction:column;min-width:0}
-.topbar{position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:.75rem;padding:.7rem 1.4rem;background:var(--surface);border-bottom:1px solid var(--border)}
+.topbar{position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:.75rem;padding:.7rem 1.4rem;background:var(--glass-bar);-webkit-backdrop-filter:blur(16px) saturate(1.4);backdrop-filter:blur(16px) saturate(1.4);border-bottom:1px solid var(--border)}
 .topbar .title{font-weight:600;font-size:1.05rem;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .menu-btn{display:none}
 .proto-banner{background:var(--warning-soft);color:var(--warning);padding:.45rem 1.4rem;font-size:.8rem;border-bottom:1px solid var(--border)}
@@ -111,7 +126,7 @@ button,input,select,textarea{font:inherit;color:inherit}
 .avatar{width:32px;height:32px;border-radius:50%;background:var(--primary-soft);color:var(--primary);display:grid;place-items:center;font-weight:600;font-size:.8rem}
 
 /* ============ 4. COMPONENTS ============ */
-.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);padding:1.1rem}
+.card{background:var(--glass);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);padding:1.1rem}
 .card + .card{margin-top:1rem}
 .grid > .card + .card{margin-top:0}   /* grid gaps already space cards side by side */
 .card-head{display:flex;align-items:center;justify-content:space-between;gap:.75rem;margin-bottom:.8rem;flex-wrap:wrap}
@@ -212,8 +227,51 @@ legend{font-weight:700;padding:0 .4rem;color:var(--primary)}
 /* Sign-in / registration (shown instead of the app shell when signed out) */
 body.signed-out .sidebar,body.signed-out .topbar,body.signed-out .scrim{display:none}
 body.signed-out .app{grid-template-columns:minmax(0,1fr)}
-.auth-wrap{min-height:calc(100vh - 140px);display:grid;place-items:center;padding-block:1.5rem}
-.auth-card{width:100%;max-width:470px;background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:0 10px 30px rgba(15,23,42,.08);overflow:hidden}
+/* Page backdrop (sign-in and portal): aurora glows (blue / violet / coral / teal) over a soft base, plus a faint
+   repeating pattern of job-search icons (briefcase, search, résumé, location, rising chart,
+   shortlist check, calendar). All CSS + inline SVG, so it is sharp at any size and theme-aware. */
+body{background:var(--auth-base);background-attachment:fixed}
+body::before,body::after{content:"";position:fixed;pointer-events:none;z-index:0}
+body::before{inset:-15%;
+  background:radial-gradient(38% 42% at 18% 22%,var(--auth-blob-1),transparent 70%),
+    radial-gradient(34% 38% at 85% 18%,var(--auth-blob-2),transparent 70%),
+    radial-gradient(36% 40% at 80% 85%,var(--auth-blob-3),transparent 70%),
+    radial-gradient(32% 36% at 12% 82%,var(--auth-blob-4),transparent 70%);
+  filter:blur(8px);animation:auroraDrift 28s ease-in-out infinite alternate}
+body::after{inset:0;background:var(--auth-motif);
+  -webkit-mask:url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' height='260' viewBox='0 0 260 260' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='22' y='34' width='38' height='27' rx='5'/%3E%3Cpath d='M34 34v-5a4 4 0 0 1 4-4h8a4 4 0 0 1 4 4v5M22 46h38'/%3E%3Ccircle cx='172' cy='38' r='12'/%3E%3Cpath d='M181 47l11 11'/%3E%3Cpath d='M102 92h22l10 10v33a3 3 0 0 1-3 3h-29a3 3 0 0 1-3-3V95a3 3 0 0 1 3-3z'/%3E%3Cpath d='M124 92v10h10M106 112h20M106 120h20M106 128h12'/%3E%3Cpath d='M214 108a13 13 0 0 1 13 13c0 10-13 24-13 24s-13-14-13-24a13 13 0 0 1 13-13z'/%3E%3Ccircle cx='214' cy='121' r='4'/%3E%3Cpath d='M24 206l15-15 11 11 22-22'/%3E%3Cpath d='M61 180h11v11'/%3E%3Ccircle cx='176' cy='204' r='14'/%3E%3Cpath d='M169 204l5 5 9-9'/%3E%3Crect x='98' y='200' width='32' height='30' rx='4'/%3E%3Cpath d='M98 211h32M107 195v9M121 195v9'/%3E%3Cpath d='M78 66h7M81.5 62.5v7M232 54h7M235.5 50.5v7M146 166h6M149 163v6M14 130h6M17 127v6'/%3E%3C/svg%3E") 0 0/260px 260px repeat;
+  mask:url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' height='260' viewBox='0 0 260 260' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='22' y='34' width='38' height='27' rx='5'/%3E%3Cpath d='M34 34v-5a4 4 0 0 1 4-4h8a4 4 0 0 1 4 4v5M22 46h38'/%3E%3Ccircle cx='172' cy='38' r='12'/%3E%3Cpath d='M181 47l11 11'/%3E%3Cpath d='M102 92h22l10 10v33a3 3 0 0 1-3 3h-29a3 3 0 0 1-3-3V95a3 3 0 0 1 3-3z'/%3E%3Cpath d='M124 92v10h10M106 112h20M106 120h20M106 128h12'/%3E%3Cpath d='M214 108a13 13 0 0 1 13 13c0 10-13 24-13 24s-13-14-13-24a13 13 0 0 1 13-13z'/%3E%3Ccircle cx='214' cy='121' r='4'/%3E%3Cpath d='M24 206l15-15 11 11 22-22'/%3E%3Cpath d='M61 180h11v11'/%3E%3Ccircle cx='176' cy='204' r='14'/%3E%3Cpath d='M169 204l5 5 9-9'/%3E%3Crect x='98' y='200' width='32' height='30' rx='4'/%3E%3Cpath d='M98 211h32M107 195v9M121 195v9'/%3E%3Cpath d='M78 66h7M81.5 62.5v7M232 54h7M235.5 50.5v7M146 166h6M149 163v6M14 130h6M17 127v6'/%3E%3C/svg%3E") 0 0/260px 260px repeat}
+.app{position:relative;z-index:1}
+/* Inside the portal: same backdrop, but still and a little quieter, so long work sessions stay calm. */
+body:not(.signed-out)::before{animation:none;opacity:.85}
+body:not(.signed-out)::after{opacity:.65}
+@media (min-width:861px){.card{-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}}
+@keyframes auroraDrift{from{transform:translate3d(-2%,-1%,0) rotate(0deg)}to{transform:translate3d(2%,2%,0) rotate(4deg)}}
+@media (prefers-reduced-motion:reduce){body::before{animation:none}}
+@media (max-width:560px){body::after{-webkit-mask-size:200px 200px;mask-size:200px 200px}}
+
+.auth-wrap{position:relative;min-height:calc(100vh - 140px);display:grid;place-items:center;padding-block:1.5rem}
+.auth-card{position:relative;z-index:1;width:100%;max-width:470px;background:var(--auth-card);border:1px solid var(--auth-card-border);border-radius:16px;
+  box-shadow:0 24px 60px rgba(15,23,42,.18),0 2px 6px rgba(15,23,42,.06);overflow:hidden;-webkit-backdrop-filter:blur(18px) saturate(1.3);backdrop-filter:blur(18px) saturate(1.3)}
+/* Floating "job activity" cards around the form on wide screens (decorative). */
+.auth-chips{display:none}
+@media (min-width:1100px){
+  .auth-chips{display:block;position:absolute;inset:0;pointer-events:none}
+  .auth-chip{position:absolute;display:flex;align-items:center;gap:.6rem;padding:.6rem .85rem;border-radius:14px;background:var(--auth-chip);border:1px solid var(--auth-card-border);
+    box-shadow:var(--auth-chip-shadow);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);font-size:.8rem;color:var(--text-2);white-space:nowrap;animation:chipFloat 7s ease-in-out infinite alternate}
+  .auth-chip b{display:block;color:var(--text);font-size:.86rem}
+  .auth-chip .ci{display:grid;place-items:center;width:34px;height:34px;border-radius:10px;color:#fff;flex:none}
+  .auth-chip:nth-child(1){top:14%;right:calc(50% + 280px)} .auth-chip:nth-child(1) .ci{background:linear-gradient(135deg,#3b6cff,#6a8dff)}
+  .auth-chip:nth-child(2){top:44%;right:calc(50% + 310px);animation-delay:-2s} .auth-chip:nth-child(2) .ci{background:linear-gradient(135deg,#14b8a6,#2dd4bf)}
+  .auth-chip:nth-child(3){bottom:14%;right:calc(50% + 270px);animation-delay:-4s} .auth-chip:nth-child(3) .ci{background:linear-gradient(135deg,#ff7a59,#ffa26b)}
+  .auth-chip:nth-child(4){top:18%;left:calc(50% + 280px);animation-delay:-1s} .auth-chip:nth-child(4) .ci{background:linear-gradient(135deg,#8b5cf6,#b38bff)}
+  .auth-chip:nth-child(5){bottom:20%;left:calc(50% + 300px);animation-delay:-3s} .auth-chip:nth-child(5) .ci{background:linear-gradient(135deg,#f59e0b,#fbbf24)}
+  .auth-card.wide ~ .auth-chips .auth-chip:nth-child(-n+3){right:calc(50% + 365px)}
+  .auth-card.wide ~ .auth-chips .auth-chip:nth-child(n+4){left:calc(50% + 365px)}
+}
+@media (min-width:1100px) and (max-width:1399px){.auth-card.wide ~ .auth-chips{display:none}}
+@keyframes chipFloat{from{transform:translateY(-6px)}to{transform:translateY(6px)}}
+@media (prefers-reduced-motion:reduce){.auth-chip{animation:none}}
 .auth-card.wide{max-width:640px}
 .auth-head{padding:1.4rem 1.5rem 1rem;background:linear-gradient(120deg,var(--primary-soft),var(--info-soft));display:flex;flex-direction:column;gap:.35rem}
 .auth-head .brand-row{display:flex;align-items:center;gap:.6rem}
@@ -363,6 +421,7 @@ body.signed-out .app{grid-template-columns:minmax(0,1fr)}
   /* Always print on a light page, whatever theme is on screen. */
   :root,:root[data-theme="dark"],:root:not([data-theme="light"]){
     --bg:#ffffff; --surface:#ffffff; --surface-2:#f8fafc; --border:#d5dbe5;
+    --glass:#ffffff; --glass-bar:#ffffff; --auth-base:#ffffff;
     --text:#0f172a; --text-2:#334155; --text-3:#475569;
     --primary:#2453c9; --primary-soft:#e8eefc; --success:#15803d; --success-soft:#dcfce7;
     --warning:#a16207; --warning-soft:#fef3c7; --danger:#b91c1c; --danger-soft:#fee2e2;
@@ -371,6 +430,8 @@ body.signed-out .app{grid-template-columns:minmax(0,1fr)}
   @page{size:A4;margin:12mm 10mm}
   body{background:#fff;font-size:11px}
   .sidebar,.topbar,.scrim,.proto-banner,.toasts,.modal-backdrop,.no-print{display:none !important}
+  body{background:#fff !important} body::before,body::after{display:none !important}
+  .card{-webkit-backdrop-filter:none !important;backdrop-filter:none !important}
   .app{display:block}
   .content{padding:0;max-width:none}
   #view,#view:focus{outline:none}
@@ -3111,7 +3172,18 @@ const LoginView = {
         <button role="tab" id="tabSignin" aria-selected="${t === "signin"}" class="${t === "signin" ? "active" : ""}" data-auth-tab="signin">Sign in</button>
         <button role="tab" id="tabRegister" aria-selected="${t === "register"}" class="${t === "register" ? "active" : ""}" data-auth-tab="register">Create account</button></div>
       <div class="auth-body">${notice}${dirNote}${t === "signin" ? LoginView.signinForm() : LoginView.registerForm()}</div>
-    </div></div>`;
+    </div>${LoginView.chips()}</div>`;
+  },
+  /** Decorative "job activity" cards floating beside the form on wide screens (hidden from screen readers). */
+  chips() {
+    const c = (path, title, sub) => `<div class="auth-chip"><span class="ci">${icon(path, 18)}</span><span><b>${title}</b>${sub}</span></div>`;
+    return `<div class="auth-chips" aria-hidden="true">
+      ${c("M11 3a8 8 0 1 0 0 16 8 8 0 0 0 0-16zM21 21l-4.3-4.3", "Search internal roles", "Find your next move")}
+      ${c("M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9zM14 3v6h6M8 13h8M8 17h5", "Resume uploaded", "Saved securely")}
+      ${c("M3 17l6-6 4 4 8-8M15 7h6v6", "Skill match", "See how you score")}
+      ${c("M20 7H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2zM16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2", "New opening", "Apply in minutes")}
+      ${c("M20 6L9 17l-5-5", "Shortlisted", "Track every step")}
+    </div>`;
   },
 
   signinForm() {
