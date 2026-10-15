@@ -1,13 +1,14 @@
 /**
  * POST /api/applications/update   { id, patch }
  * Changes one application. lib/applications.mjs#applyPatch decides what each role may change:
- *  - Job Seekers: their own open application — resume, or withdraw
+ *  - Job Seekers: their own open application — new resume (resumeFileId from /api/resumes), or withdraw
  *  - Job Posters / Admins: assessment fields and decisions; Admins also manager approval
  */
 import { sendJson, readJson, checkPost } from "../../lib/http.mjs";
 import { currentUser } from "../../lib/session.mjs";
 import { isConfigured } from "../../lib/google.mjs";
 import { listApps, saveApp, applyPatch } from "../../lib/applications.mjs";
+import { claimResume, attachResume } from "../../lib/resumes.mjs";
 
 export default async function handler(req, res) {
   if (!checkPost(req, res)) return;
@@ -18,8 +19,10 @@ export default async function handler(req, res) {
     const { id, patch } = await readJson(req);
     const entry = (await listApps()).find(e => e.rec.id === String(id || ""));
     if (!entry) return sendJson(res, 404, { error: "Application not found." });
-    entry.rec = applyPatch(user, entry.rec, patch);
+    const claimed = patch && patch.resumeFileId ? await claimResume(user, patch.resumeFileId) : null;
+    entry.rec = applyPatch(user, entry.rec, patch, claimed);
     await saveApp(entry);
+    if (claimed) await attachResume(claimed, entry.rec).catch(e => console.error("attach resume:", e.message));
     return sendJson(res, 200, { application: entry.rec });
   } catch (e) {
     if (e instanceof SyntaxError) return sendJson(res, 400, { error: "Bad request." });

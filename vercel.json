@@ -47,7 +47,7 @@
   "functions": {
     "api/**/*.js": {
       "includeFiles": "data/*.json",
-      "maxDuration": 10
+      "maxDuration": 30
     }
   }
 }

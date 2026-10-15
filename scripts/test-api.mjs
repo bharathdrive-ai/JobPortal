@@ -34,6 +34,14 @@ const H = { "Content-Type": "application/json", "X-TalentHub": "1" };
 const post = async (path, body, cookie) => { const r = await fetch(base + path, { method: "POST", headers: { ...H, ...(cookie ? { Cookie: cookie } : {}) }, body: JSON.stringify(body) }); return { status: r.status, body: await r.json().catch(() => ({})), cookie: (r.headers.get("set-cookie") || "").split(";")[0] }; };
 const get = async (path, cookie) => { const r = await fetch(base + path, { headers: cookie ? { Cookie: cookie } : {} }); return { status: r.status, body: await r.json().catch(() => ({})) }; };
 const login = async (l, p, role) => (await post("/api/auth/login", { login: l, password: p, roleCode: role })).cookie;
+const PDF = (tag = "") => Buffer.from("%PDF-1.4\n% TalentHub test " + tag + "\n%%EOF");
+const DOCX = () => Buffer.concat([Buffer.from([0x50, 0x4B, 0x03, 0x04]), Buffer.from("....word/document.xml....")]);
+const upload = async (cookie, name, data, headers = {}) => {
+  const r = await fetch(base + "/api/resumes", { method: "POST", body: data, headers: { "Content-Type": "application/octet-stream", "X-TalentHub": "1",
+    "X-File-Name": encodeURIComponent(name), ...(cookie ? { Cookie: cookie } : {}), ...headers } });
+  return { status: r.status, body: await r.json().catch(() => ({})) };
+};
+const fileId = async (cookie, name, tag) => (await upload(cookie, name, PDF(tag))).body.fileId;
 
 const PW = "Talent#Test2026x";
 const person = (o) => ({ roleCode: "JS", name: "Meera Nair", email: "meera.nair@talenthub.example", empId: "EMP-12455", designation: "Associate PM",
@@ -80,27 +88,75 @@ r = await get("/api/applications", seeker);
 check("Job Seeker sees only their own application", r.status === 200 && r.body.applications.length === 1 && r.body.applications[0].id === "APP-5003");
 r = await get("/api/applications", poster);
 check("Job Poster sees all applications", r.status === 200 && r.body.applications.length === 2);
-r = await post("/api/applications", { jobId: "JOB-2026-1002", note: "Keen", resumeFile: "Sneha.pdf", resumeSize: 1234, name: "Someone Else", empId: "EMP-00001" }, seeker);
+console.log("Resume files");
+r = await upload(seeker, "Sneha.pdf", PDF("sneha"), { "X-TalentHub": "" });
+check("upload without the portal header → 400", r.status === 400);
+r = await upload(null, "Sneha.pdf", PDF("sneha"));
+check("upload signed out → 401", r.status === 401);
+r = await upload(seeker, "Sneha.pdf", Buffer.from("<html><script>alert(1)</script></html>"));
+check("a non-PDF named .pdf is refused", r.status === 400 && /PDF or Word/.test(r.body.error));
+r = await upload(seeker, "Sneha.docx", PDF("x"));
+check("a PDF named .docx is refused", r.status === 400);
+r = await upload(seeker, "big.pdf", Buffer.concat([PDF("big"), Buffer.alloc(4 * 1024 * 1024)]));
+check("a file over 4 MB is refused → 413", r.status === 413);
+r = await upload(seeker, "Sneha_CV.docx", DOCX());
+check("a Word .docx upload → 201", r.status === 201 && r.body.kind === "docx");
+r = await upload(seeker, "..\\..\\Sneha <b>.pdf", PDF("sneha"));
+const sneha1 = r.body.fileId;
+check("PDF upload → 201, stored in Drive with a cleaned name", r.status === 201 && r.body.name === "Sneha b.pdf" && google.fakeFiles().get(sneha1).meta.appProperties.uploader === "uid_GE0001", JSON.stringify(r.body));
+
+console.log("Applying with a resume");
+r = await post("/api/applications", { jobId: "JOB-2026-1002", note: "Keen", resumeFileId: sneha1, resumeFile: "fake.pdf", name: "Someone Else", empId: "EMP-00001" }, seeker);
 check("apply → 201, record built from the account (not the request)", r.status === 201 && r.body.application.name === "Sneha Kulkarni" && r.body.application.empId === "EMP-11920" && r.body.application.id === "APP-5004", JSON.stringify(r.body).slice(0, 160));
+check("…with the uploaded file attached", r.body.application.resumeFileId === sneha1 && r.body.application.resumeFile === "Sneha b.pdf");
+check("Drive file renamed after the application and marked attached", /^APP-5004 · JOB-2026-1002 · Sneha Kulkarni · resume\.pdf$/.test(google.fakeFiles().get(sneha1).meta.name) && google.fakeFiles().get(sneha1).meta.appProperties.state === "attached");
 const newId = r.body.application && r.body.application.id;
-r = await post("/api/applications", { jobId: "JOB-2026-1002", resumeFile: "again.pdf" }, seeker);
+r = await post("/api/applications", { jobId: "JOB-2026-1004", resumeFileId: sneha1 }, seeker);
+check("an attached file can't be reused for another application", r.status === 400 && /already attached/.test(r.body.error));
+const posterFile = await fileId(poster, "poster.pdf", "p");
+r = await post("/api/applications", { jobId: "JOB-2026-1004", resumeFileId: posterFile }, seeker);
+check("someone else's upload can't be attached", r.status === 400 && /someone else/.test(r.body.error));
+r = await post("/api/applications", { jobId: "JOB-2026-1004", resumeFileId: "notARealDriveFileId" }, seeker);
+check("an unknown file ID is refused", r.status === 400 && /wasn't found/.test(r.body.error));
+
+console.log("Opening resumes");
+let v = await fetch(base + "/api/resumes/file?app=" + newId, { headers: { Cookie: seeker } });
+let bytes = Buffer.from(await v.arrayBuffer());
+check("applicant opens their resume (PDF, inline, not cached)", v.status === 200 && v.headers.get("content-type") === "application/pdf" && /^inline/.test(v.headers.get("content-disposition")) && /no-store/.test(v.headers.get("cache-control")) && bytes.equals(PDF("sneha")));
+v = await fetch(base + "/api/resumes/file?app=" + newId, { headers: { Cookie: poster } });
+check("Job Poster opens it too", v.status === 200);
+const meera = await login("meera.nair", PW, "JS");
+v = await fetch(base + "/api/resumes/file?app=" + newId, { headers: { Cookie: meera } });
+check("another Job Seeker can't → 404", v.status === 404);
+v = await fetch(base + "/api/resumes/file?app=" + newId);
+check("signed out can't → 401", v.status === 401);
+v = await fetch(base + "/api/resumes/file?app=APP-5001", { headers: { Cookie: poster } });
+check("an older application with only a file name → 404 with an explanation", v.status === 404 && /file name was recorded/.test((await v.json()).error));
+
+r = await post("/api/applications", { jobId: "JOB-2026-1002", resumeFileId: "x" }, seeker);
 check("applying twice → 409", r.status === 409);
 r = await post("/api/applications", { jobId: "JOB-2026-1007", resumeFile: "x.pdf" }, seeker);
 check("applying to a Draft job → 400", r.status === 400);
 r = await post("/api/applications", { jobId: "JOB-2026-1005", resumeFile: "x.pdf" }, poster);
 check("Job Poster can't apply → 403", r.status === 403);
 
-r = await post("/api/applications/update", { id: "APP-5001", patch: { resumeFile: "hack.pdf" } }, seeker);
+r = await post("/api/applications/update", { id: "APP-5001", patch: { resumeFileId: await fileId(seeker, "hack.pdf", "h") } }, seeker);
 check("Job Seeker can't change someone else's application → 403", r.status === 403);
+r = await post("/api/applications/update", { id: newId, patch: { resumeFile: "name-only.pdf" } }, seeker);
+check("a bare file name (no upload) is refused", r.status === 403 && /resumeFile/.test(r.body.error));
 r = await post("/api/applications/update", { id: newId, patch: { criteria: { reqSkills: { score: 100, evidence: [] } } } }, seeker);
 check("Job Seeker can't score their own application → 403", r.status === 403);
-r = await post("/api/applications/update", { id: newId, patch: { resumeFile: "Sneha_v2.pdf", resumeSize: 2048, resumeUpdatedAt: "2026-10-15T10:00" } }, seeker);
-check("Job Seeker updates their resume → 200", r.status === 200 && r.body.application.resumeFile === "Sneha_v2.pdf");
+const sneha2 = await fileId(seeker, "Sneha_v2.pdf", "v2");
+r = await post("/api/applications/update", { id: newId, patch: { resumeFileId: sneha2 } }, seeker);
+check("Job Seeker replaces their resume → 200, old file kept in history", r.status === 200 && r.body.application.resumeFile === "Sneha_v2.pdf"
+  && r.body.application.resumeFileId === sneha2 && r.body.application.resumeHistory.length === 1 && r.body.application.resumeHistory[0].fileId === sneha1);
+v = await fetch(base + "/api/resumes/file?app=" + newId, { headers: { Cookie: poster } });
+check("…and the new file is the one that opens", Buffer.from(await v.arrayBuffer()).equals(PDF("v2")));
 r = await post("/api/applications/update", { id: newId, patch: { decision: "Shortlisted" } }, seeker);
 check("Job Seeker can't shortlist themselves → 403", r.status === 403);
 r = await post("/api/applications/update", { id: newId, patch: { decision: "Withdrawn", decisionReason: "Changed my mind" } }, seeker);
 check("Job Seeker withdraws → 200", r.status === 200 && r.body.application.decision === "Withdrawn");
-r = await post("/api/applications/update", { id: newId, patch: { resumeFile: "late.pdf" } }, seeker);
+r = await post("/api/applications/update", { id: newId, patch: { resumeFileId: await fileId(seeker, "late.pdf", "l") } }, seeker);
 check("no changes after withdrawal → 403", r.status === 403);
 
 r = await post("/api/applications/update", { id: "APP-5001", patch: { criteria: { reqSkills: { score: 88, evidence: [{ text: "Built React apps", src: "Experience" }] } }, assessStatus: "Assessed", comments: "Strong" } }, poster);
@@ -123,10 +179,10 @@ google.fakeReset({ Accounts: [], Applications: [] });
 r = await post("/api/auth/register", person({ name: "Nina Das", email: "nina.das@talenthub.example", empId: "EMP-40001" }));
 const nina = await login("nina.das", PW, "JS");
 check("first sign-up in a header-less tab can sign in", r.status === 201 && !!nina);
-r = await post("/api/applications", { jobId: "JOB-2026-1003", resumeFile: "Nina.pdf" }, nina);
+r = await post("/api/applications", { jobId: "JOB-2026-1003", resumeFileId: await fileId(nina, "Nina.pdf", "n") }, nina);
 const firstApp = await get("/api/applications", nina);
 check("first application in a header-less tab is listed", r.status === 201 && firstApp.body.applications.length === 1);
-r = await post("/api/applications/update", { id: firstApp.body.applications[0].id, patch: { resumeFile: "Nina_v2.pdf" } }, nina);
+r = await post("/api/applications/update", { id: firstApp.body.applications[0].id, patch: { resumeFileId: await fileId(nina, "Nina_v2.pdf", "n2") } }, nina);
 check("…and can be updated in place", r.status === 200 && (await get("/api/applications", nina)).body.applications[0].resumeFile === "Nina_v2.pdf");
 
 r = await get("/api/applications");
